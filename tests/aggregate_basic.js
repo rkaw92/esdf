@@ -11,9 +11,9 @@ aggr.on('error', function(){});
 describe('EventSourcedAggregate', function(){
 	describe('#commit() success', function(){
 		it('should commit the event successfully, with a command ID attached', function(test_done){
-			aggr.eventSink._want_success = true;
-			aggr.stage('pageCreated', {arg1: 'val1', timestamp: new Date()}, 'command-1');
-			when(aggr.commit(),
+			aggr.eventSink._wantSinkSuccess = true;
+			aggr.stage('pageCreated', {arg1: 'val1', timestamp: new Date()});
+			when(aggr.commit('command-1'),
 			function(result){
 				return test_done(null); //no error
 			},
@@ -26,7 +26,7 @@ describe('EventSourcedAggregate', function(){
 	
 	describe('#commit() failure', function(){
 		it('should fail to emit the event', function(test_done){
-			aggr.eventSink._want_success = false;
+			aggr.eventSink._wantSinkSuccess = false;
 			aggr.stage('pageCreated', {arg1: 'val1', timestamp: new Date()});
 			when(aggr.commit(),
 			function(result){
@@ -41,11 +41,11 @@ describe('EventSourcedAggregate', function(){
 	
 	describe('#retry test', function(){
 		it('should commit the event successfully, despite a retry in the middle', function(test_done){
-			aggr.eventSink._want_success = false;
-			aggr.eventSink._failure_type = 'concurrency';
+			aggr.eventSink._wantSinkSuccess = false;
+			aggr.eventSink._failureType = 'concurrency';
 			var reloaded = false;
 			aggr.on('error', function(error){
-				aggr.eventSink._want_success = true;
+				aggr.eventSink._wantSinkSuccess = true;
 				reloaded = true; //in lieu of a real reload
 				aggr.commit().then(function(){
 					test_done();
@@ -54,7 +54,7 @@ describe('EventSourcedAggregate', function(){
 				});
 			});
 			aggr.stage('pageCreated', {arg1: 'val2', timestamp: new Date()});
-			aggr.commit();
+			aggr.commit().then(undefined, function(){aggr.emit('error');});
 		});
 	});
 	
@@ -71,8 +71,7 @@ describe('EventSourcedAggregate', function(){
 	describe('#command deduplication', function(){
 		it('should return undefined from the method wrapper call, rather than generate an exception', function(){
 			aggr.dummyCommand = EventSourcedAggregate.deduplicateCommand(function(){throw new Error('Should not be called!');});
-			console.log('Executed commands:', aggr._executedCommands);
-			return (aggr.dummyCommand('command-1', 'a', 'b', 'c') === undefined);
+			return ((aggr.dummyCommand('command-1', 'a', 'b', 'c') === undefined && aggr._executedCommands['command-1']) ? null : new Error('Command has not been deduplicated!'));
 		});
 	});
 });
