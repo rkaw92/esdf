@@ -14,12 +14,17 @@ function DummyEventSink(){
 	 * Whether the next sink() attempt should succeed.
 	 * @public
 	 */
-	this._want_success = true;
+	this._wantSinkSuccess = true;
+	/**
+	 * Whether the next rehydration attempt should succeed.
+	 * @public
+	 */
+	this._wantRehydrateSuccess = true;
 	/**
 	 * The type of failure to enrich the error with when a failure is requested via _want_success=false.
 	 * @public
 	 */
-	this._failure_type = 'DummyEventSink test failure';
+	this._failureType = 'DummyEventSink test failure';
 	/**
 	 * The event streams holding the sunk data.
 	 * @private
@@ -38,8 +43,8 @@ function DummyEventSink(){
 DummyEventSink.prototype.sink = function sink(events, stream_id, sequence_number){
 	var r = when.defer().resolver;
 	var sink_error = new Error('DummyEventSink.sink:reject');
-	sink_error.type = this._failure_type;
-	if(this._want_success){
+	sink_error.type = this._failureType;
+	if(this._wantSinkSuccess){
 		var event_envelope = events;
 		if(typeof(this._streams[stream_id]) === 'undefined'){
 			this._streams[stream_id] = [event_envelope];
@@ -63,8 +68,8 @@ DummyEventSink.prototype.sink = function sink(events, stream_id, sequence_number
 DummyEventSink.prototype.rehydrate = function rehydrate(object, stream_id){
 	var rehydration_deferred = when.defer();
 	var rehydrate_error = new Error('DummyEventSink rehydration event retrieval failure');
-	rehydrate_error.type = this._failure_type;
-	if(this._want_success){
+	rehydrate_error.type = this._failureType;
+	if(this._wantRehydrateSuccess){
 		if(Array.isArray(this._streams[stream_id])){
 			this._streams[stream_id].forEach(function(streamed_commit){
 				object.applyCommit(streamed_commit);
