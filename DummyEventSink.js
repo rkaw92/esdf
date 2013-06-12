@@ -40,22 +40,27 @@ function DummyEventSink(){
  * @param {string} stream_id The stream ID under which the commit should be saved. Typically, this is equal to the Aggregate Root ID.
  * @param {number} sequence_number The sequence number to save the commit under. Only one commit within a given stream ID can occupy each sequence number.
  */
-DummyEventSink.prototype.sink = function sink(events, stream_id, sequence_number){
+DummyEventSink.prototype.sink = function sink(events, streamID, sequenceNumber, metadata){
 	var r = when.defer().resolver;
-	var sink_error = new Error('DummyEventSink.sink:reject');
-	sink_error.type = this._failureType;
+	var sinkError = new Error('DummyEventSink.sink:reject');
+	sinkError.type = this._failureType;
 	if(this._wantSinkSuccess){
-		var event_envelope = events;
-		if(typeof(this._streams[stream_id]) === 'undefined'){
-			this._streams[stream_id] = [event_envelope];
+		var eventEnvelope = events;
+		if(metadata){
+			for(var k in metadata){
+				eventEnvelope[k] = metadata[k];
+			}
+		}
+		if(typeof(this._streams[streamID]) === 'undefined'){
+			this._streams[streamID] = [eventEnvelope];
 		}
 		else{
-			this._streams[stream_id].push(event_envelope);
+			this._streams[streamID].push(eventEnvelope);
 		}
 		return r.resolve('DummyEventSink.sink:resolve');
 	}
 	else{
-		return r.reject(sink_error);
+		return r.reject(sinkError);
 	}
 };
 
@@ -65,21 +70,32 @@ DummyEventSink.prototype.sink = function sink(events, stream_id, sequence_number
  * @param {Object} object The object to apply the events to.
  * @param {string} stream_id The stream ID from which to load the events.
  */
-DummyEventSink.prototype.rehydrate = function rehydrate(object, stream_id){
-	var rehydration_deferred = when.defer();
-	var rehydrate_error = new Error('DummyEventSink rehydration event retrieval failure');
-	rehydrate_error.type = this._failureType;
+DummyEventSink.prototype.rehydrate = function rehydrate(object, streamID, options){
+	if(!options){
+		options = {};
+	}
+	var rehydrationDeferred = when.defer();
+	var commandSeen = false;
+	var rehydrateError = new Error('DummyEventSink rehydration event retrieval failure');
+	rehydrateError.type = this._failureType;
 	if(this._wantRehydrateSuccess){
-		if(Array.isArray(this._streams[stream_id])){
-			this._streams[stream_id].forEach(function(streamed_commit){
-				object.applyCommit(streamed_commit);
-				rehydration_deferred.resolver.notify('DummyEventSink.rehydrate:progress');
-			});
+		if(Array.isArray(this._streams[streamID])){
+			for(var commit_idx = 0; commit_idx < this._streams[streamID].length; ++commit_idx){
+				var streamedCommit = this._streams[streamID][commit_idx];
+				// Halt right before this command ID, since the caller has asked us to do so.
+				if(typeof(options.untilCommandID) === 'string' && streamedCommit.CommandID === options.untilCommandID){
+					// Make sure to notify the caller about encountering the command ID.
+					commandSeen = true;
+					break;
+				}
+				object.applyCommit(streamedCommit);
+				rehydrationDeferred.resolver.notify('DummyEventSink.rehydrate:progress');
+			}
 		}
-		return rehydration_deferred.resolver.resolve('DummyEventSink.rehydrate:resolve');
+		return rehydrationDeferred.resolver.resolve({origin: 'DummyEventSink.rehydrate:resolve', commandSeen: commandSeen});
 	}
 	else{
-		return rehydration_deferred.resolver.reject(rehydrate_error);
+		return rehydrationDeferred.resolver.reject(rehydrateError);
 	}
 };
 

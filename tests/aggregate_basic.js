@@ -4,16 +4,15 @@ var when = require('when');
 var assert = require('assert');
 
 var aggr = new EventSourcedAggregate();
-aggr.assignEventSink(new DummyEventSink());
+aggr.eventSink = new DummyEventSink();
 aggr.aggregateID = 'dummy1';
-aggr.on('error', function(){});
 
 describe('EventSourcedAggregate', function(){
 	describe('#commit() success', function(){
 		it('should commit the event successfully, with a command ID attached', function(test_done){
 			aggr.eventSink._wantSinkSuccess = true;
-			aggr.stage('pageCreated', {arg1: 'val1', timestamp: new Date()});
-			when(aggr.commit('command-1'),
+			aggr.stage('PageCreated', {arg1: 'val1', take: 1});
+			when(aggr.commit(),
 			function(result){
 				return test_done(null); //no error
 			},
@@ -27,7 +26,7 @@ describe('EventSourcedAggregate', function(){
 	describe('#commit() failure', function(){
 		it('should fail to emit the event', function(test_done){
 			aggr.eventSink._wantSinkSuccess = false;
-			aggr.stage('pageCreated', {arg1: 'val1', timestamp: new Date()});
+			aggr.stage('PageCreated', {arg1: 'val1', take: 2});
 			when(aggr.commit(),
 			function(result){
 				return test_done(new Error('pageCreated event commit should fail, but it worked somehow!'));
@@ -53,25 +52,42 @@ describe('EventSourcedAggregate', function(){
 					test_done(err);
 				});
 			});
-			aggr.stage('pageCreated', {arg1: 'val2', timestamp: new Date()});
+			aggr.stage('PageCreated', {arg1: 'val2', take: 3});
 			aggr.commit().then(undefined, function(){aggr.emit('error');});
 		});
 	});
 	
 	describe('#rehydrate', function(){
-		it('should produce an AR that is completely equivalent to the first AR', function(test_done){
+		it('should save and rehydrate the aggregate root', function(test_done){
 			var ar2 = new EventSourcedAggregate();
-			ar2.aggregateID = 'dummy1'; //same identity
-			ar2.eventSink = aggr.eventSink;
-			var rehydration_promise = ar2.eventSink.rehydrate(ar2, ar2.aggregateID);
-			rehydration_promise.then(function(){test_done();}, test_done);
+			ar2.aggregateID = 'dummy3';
+			ar2.eventSink = new DummyEventSink();
+			ar2.stage('okayed', {take: 4});
+			ar2.commit().then(function(){
+				// When we have committed the AR's events, load another instance of the same entity and see if the event shows up.
+				var ar3 = new EventSourcedAggregate();
+				ar3.aggregateID = ar2.aggregateID;
+				ar3.eventSink = ar2.eventSink;
+				ar3.on('okayed', function(){
+					// This is an ok flag. If the event handler is not called for some reason, it will not be set, so we'll know the event sink did not reliably rehydrate us.
+					this.ok = true;
+				});
+				var rehydration_promise = ar3.eventSink.rehydrate(ar3, ar3.aggregateID);
+				rehydration_promise.then(function(){
+					test_done(ar3.ok ? null : new Error('Expected ar3.ok to be true, but instead got: ' + ar3.ok));
+				}, test_done);
+			},
+			function(reason){
+				// In case of error, we pass the rejection reason right to the test framework.
+				test_done(new Error(reason));
+			});
 		});
 	});
 	
-	describe('#command deduplication', function(){
-		it('should return undefined from the method wrapper call, rather than generate an exception', function(){
-			aggr.dummyCommand = EventSourcedAggregate.deduplicateCommand(function(){throw new Error('Should not be called!');});
-			return ((aggr.dummyCommand('command-1', 'a', 'b', 'c') === undefined && aggr._executedCommands['command-1']) ? null : new Error('Command has not been deduplicated!'));
-		});
-	});
+// 	describe('#command deduplication', function(){
+// 		it('should return undefined from the method wrapper call, rather than generate an exception', function(){
+// 			aggr.dummyCommand = EventSourcedAggregate.deduplicateCommand(function(){throw new Error('Should not be called!');});
+// 			return ((aggr.dummyCommand('command-1', 'a', 'b', 'c') === undefined && aggr._executedCommands['command-1']) ? null : new Error('Command has not been deduplicated!'));
+// 		});
+// 	});
 });

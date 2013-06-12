@@ -12,30 +12,31 @@
  * @returns {EventEmitter} An event emitter which will emit events of the same name as the received events (with the payload as the first argument to emit()).
  * @throws {Error} If options.event_emitter does not implement all of these methods: emit, on.
  */
-function createReadStream(options, stream_initializer_callback){
+function createReadStream(options, streamInitializerCallback){
 	options = shallowCopy(options);
-	options.search_parameters = (options.search_parameters) ? shallowCopy(options.search_parameters) : {};
+	options.searchParameters = (options.searchParameters) ? shallowCopy(options.searchParameters) : {};
 	//Fallbacks for delegation functions - used to replace the defaults.
 	//The "fast" variant should be fast indeed - it is used when iterating through events. Since events are (usually) loaded serially, any delay here will decrease the read throughput.
-	options.delegation_function_fast = (options.delegation_function_fast) ? options.delegation_function_fast : setImmediate;
+	options.delegationFunctionFast = (options.delegationFunctionFast) ? options.delegationFunctionFast : setImmediate;
 	//For a lower CPU usage, set delegation_function to something like function(callback){setTimeout(callback, 100);}. This will also result in a slower response time, so mind your QoS!
-	options.delegation_function = (options.delegation_function) ? options.delegation_function : options.delegation_function_fast;
+	options.delegationFunction = (options.delegationFunction) ? options.delegationFunction : options.delegationFunctionFast;
 	
 	//The EventEmitter is given out to the consumer (it *is* the event-reading stream!).
-	var ev = (options.event_emitter) ? options.event_emitter : new (require('events').EventEmitter);
+	var ev = (options.eventEmitter) ? options.eventEmitter : new (require('events').EventEmitter);
 	if(!ev.emit || !ev.on){
 		throw new Error('EventEmitter');
 	}
 	//Initially, we are in a running state. If "running" is set to false, the event source will wait with subsequent data pushes until resumed.
 	//NOTE: It is not guaranted that, immediately after pause(), data will stop appearing. The source may choose to finish the current event batch first.
 	ev.running = true;
-	ev.next_callback = null;
+	ev.nextCallback = null;
 	
-	function makeDelegationWrapper(local_delegation_function, name){
+	// The delegation wrapper assigns "funcname" to delay functions, so that they have meaningful names and are easier to recognize in stack traces.
+	function makeDelegationWrapper(localDelegationFunction, name){
 		function wrapped(callback){
-			next_callback = callback;
+			nextCallback = callback;
 			if(this.running){ //"this" should point to the object the method is bound to - in this case, the event emitter (see assignments to ev.* below).
-				local_delegation_function(next_callback);
+				localDelegationFunction(nextCallback);
 			}
 			else{
 				this.emit('paused');
@@ -46,8 +47,8 @@ function createReadStream(options, stream_initializer_callback){
 		return wrapped;
 	};
 	
-	ev.soon = makeDelegationWrapper(options.delegation_function, 'soon');
-	ev.verySoon = makeDelegationWrapper(options.delegation_function_fast, 'verySoon');
+	ev.soon = makeDelegationWrapper(options.delegationFunction, 'soon');
+	ev.verySoon = makeDelegationWrapper(options.delegationFunctionFast, 'verySoon');
 	
 	//Assign pause/resume methods to the event emitter, so that the querying can be halted whenever required.
 	ev.pause = function pause(){
@@ -56,10 +57,10 @@ function createReadStream(options, stream_initializer_callback){
 	ev.resume = function resume(){
 		running = true;
 		this.emit('resumed');
-		soon(next_callback);
+		soon(nextcallback);
 	};
 	
-	stream_initializer_callback(options, ev);
+	streamInitializerCallback(options, ev);
 	
 	return ev;
 };
