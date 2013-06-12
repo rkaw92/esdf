@@ -1,0 +1,26 @@
+{
+	"name": "esdf",
+	"preferGlobal": false,
+	"version": "0.1.0",
+	"author": "Robert Kawecki <thewanderer@gim11.pl>",
+	"description": "a frugal event-sourced domain-driven design framework with elements of cqrs",
+	"contributors": [],
+	"scripts": {
+		"test": "mocha tests"
+	},
+	"keywords": [
+		"ddd",
+		"domain",
+		"cqrs",
+		"event",
+		"sourcing"
+	],
+	"dependencies": {
+		"uuid": "1.4.x",
+		"when": "2.x.x"
+	},
+	"license": "GPL3",
+	"engines": {
+		"node": ">=0.8"
+	}
+}
