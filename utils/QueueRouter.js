@@ -37,11 +37,29 @@ QueueRouter.prototype.addQueue = function addQueue(queueName, queueProcessorObje
 
 QueueRouter.prototype.bindQueue = function bindQueue(queueName, routingKey){
 	var router = this;
-	this._addListener(routingKey, function(message){
-		router._queues[queueName].push(message);
+	this._addListener(routingKey, function(message, visitedQueues){
+		// Check if another handler has already added this message to the queue. If yes, do nothing.
+		if(!visitedQueues[queueName]){
+			router._queues[queueName].push(message);
+			// Register the queue as visited in this message context.
+			visitedQueues[queueName] = true;
+		}
 	});
 };
 
-QueueRouter.prototype.publish = function publish(routingKey, message){
-	this._internalEmitter.emit(routingKey, message);
+QueueRouter.prototype.listen = function listen(queueName, listenerFunction){
+	if(!this._queues[queueName]){
+		throw new Error('Can not listen on a non-existent queue');
+	}
+	this._queues[queueName].setProcessorFunction(listenerFunction);
+	this._queues[queueName].start();
 };
+
+QueueRouter.prototype.publish = function publish(routingKey, message){
+	// Define a set of queue names which already contain this message. Event handlers are supposed to check this set before adding messages to queues, so as to avoid pushing duplicates.
+	var visitedQueues = {};
+	// Note: we pass the visited queues object by reference and that is intentional. Each event handler will check and enrich this set.
+	this._internalEmitter.emit(routingKey, message, visitedQueues);
+};
+
+module.exports.QueueRouter = QueueRouter;

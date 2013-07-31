@@ -13,11 +13,9 @@ var uuid = require('uuid');
  * @param {String} [aggregateID] ID of the originating Aggregate. This is typically omitted when originally creating the event - by default, Aggregates will overwrite this ID in _stageEvent automatically.
  * @param {String} [eventID] The event ID to initialize the event with. Useful when reconstructing events from serialized storage (e.g. a DB).
  */
-function Event(eventType, eventPayload, metadata, aggregateID, eventID){
+function Event(eventType, eventPayload, eventID){
 	this.eventType = eventType;
 	this.eventPayload = eventPayload;
-	this.aggregateID = (typeof(aggregateID) !== 'undefined') ? aggregateID : undefined;
-	this.metadata = metadata ? metadata : {};
 	this.eventID = (typeof(eventID) !== 'undefined') ? eventID : uuid.v4();
 	//TODO: methods
 }

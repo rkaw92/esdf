@@ -29,8 +29,15 @@ function Commit(events, sequenceID, sequenceSlot, metadata){
 	this.sequenceID = sequenceID;
 	this.sequenceSlot = sequenceSlot;
 	this.metadata = metadata ? metadata : {};
-	//TODO: some methods, maybe?
 }
+
+Commit.prototype.getEvents = function getEvents(){
+	return this.events;
+};
+
+Commit.prototype.getMetadata = function getMetadata(){
+	return this.metadata;
+};
 
 /**
  * Initialize a commit based on its flattened form (i.e. a plain Object with its methods and prototype information stripped).

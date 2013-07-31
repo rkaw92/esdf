@@ -5,6 +5,7 @@ var when = require('when');
 var assert = require('assert');
 
 var aggr = new EventSourcedAggregate();
+aggr._pages = [];
 aggr._eventSink = new DummyEventSink();
 aggr._aggregateID = 'dummy1';
 
@@ -12,7 +13,9 @@ describe('EventSourcedAggregate', function(){
 	describe('#commit() success', function(){
 		it('should commit the event successfully, with a command ID attached', function(test_done){
 			aggr._eventSink._wantSinkSuccess = true;
+			aggr.on('PageCreated', function(eventPayload){this._pages.push({title: eventPayload.arg1, take: eventPayload.take});});
 			aggr._stageEvent(new Event('PageCreated', {arg1: 'val1', take: 1}));
+			assert.equal(aggr._pages[0].title, 'val1', 'AR event handler broken');
 			when(aggr.commit(),
 			function(result){
 				return test_done(null); //no error

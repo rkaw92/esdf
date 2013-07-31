@@ -3,9 +3,8 @@
  */
 
 //TODO: module documentation
-//TODO: reimplement using a generic queue function mapper with start-stop semantics
 var EventEmitter = require('events').EventEmitter;
-var QueueProcessor = require('utils/QueueProcessor.js').QueueProcessor;
+var QueueProcessor = require('./utils/QueueProcessor.js').QueueProcessor;
 var when = require('when');
 
 function DummyEventSinkStreamer(dummyEventSink){
@@ -13,11 +12,11 @@ function DummyEventSinkStreamer(dummyEventSink){
 }
 DummyEventSinkStreamer.prototype = new EventEmitter();
 
-DummyEventSinkStreamer.prototype.setDispatcher = function setDispatcher(dispatcher){
-	if(typeof(dispatcher.dispatchCommit) !== 'function'){
-		throw new Error('The dispatcher needs to have a dispatchCommit method!');
+DummyEventSinkStreamer.prototype.setPublisher = function setPublisher(publisher){
+	if(typeof(publisher.publishCommit) !== 'function'){
+		throw new Error('The publisher needs to have a publishCommit method!');
 	}
-	return this._sinkDispatchQueue.setProcessorFunction(dispatcher.dispatchCommit.bind(dispatcher));
+	return this._sinkDispatchQueue.setProcessorFunction(publisher.publishCommit.bind(publisher));
 };
 
 DummyEventSinkStreamer.prototype.start = function start(){
