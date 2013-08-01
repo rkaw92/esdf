@@ -4,15 +4,17 @@ var EventEmitter = require('events').EventEmitter;
 var when = require('when');
 
 describe('QueueProcessor', function(){
-	var serialProcessor = new QueueProcessor(function(workItem){
-		return workItem();
-	}, {
+	var serialProcessor = new QueueProcessor({
 		concurrencyLimit: 1
 	});
-	var parallelProcessor = new QueueProcessor(function(workItem){
+	serialProcessor.setProcessorFunction(function(workItem){
 		return workItem();
-	}, {
+	});
+	var parallelProcessor = new QueueProcessor({
 		concurrencyLimit: 100
+	});
+	parallelProcessor.setProcessorFunction(function(workItem){
+		return workItem();
 	});
 	// Initialize a test event emitter. The emitter will emit events from within the work items. This is how we know the items are getting executed successfully.
 	var testEmitter = new EventEmitter();

@@ -1,5 +1,5 @@
 /**
- * @module esdf/test/DummyEventSink
+ * @module esdf/Test/DummyEventSink
  */
 
 var when = require('when');
@@ -84,7 +84,6 @@ DummyEventSink.prototype.sink = function sink(commit){
  */
 DummyEventSink.prototype.rehydrate = function rehydrate(object, sequenceID){
 	var rehydrationDeferred = when.defer();
-	var commandSeen = false;
 	var rehydrateError = new Error('DummyEventSink.rehydrate:RehydrationEventRetrievalFailure');
 	rehydrateError.type = this._failureType;
 	if(this._wantRehydrateSuccess){

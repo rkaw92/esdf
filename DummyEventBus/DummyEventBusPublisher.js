@@ -1,5 +1,5 @@
 /**
- * @module esdf/test/DummyEventBusPublisher
+ * @module esdf/Test/DummyEventBusPublisher
  */
 
 var QueueRouter = require('../utils/QueueRouter.js').QueueRouter;
@@ -10,8 +10,8 @@ var QueueRouter = require('../utils/QueueRouter.js').QueueRouter;
  * Construct a new DummyEventBusPublisher. A dummy publisher emulates per-consumer queue semantics and wildcard routing, similar to how AMQP works.
  */
 //TODO: pass the routing key builder dynamically in the constructor, instead of static function definition
-function DummyEventBusPublisher(router){
-	this._router = router;
+function DummyEventBusPublisher(){
+	this._router = new QueueRouter();
 }
 
 DummyEventBusPublisher.prototype.buildRoutingKeyForEvent = function buildRoutingKeyForEvent(eventObject){

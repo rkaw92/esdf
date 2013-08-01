@@ -18,7 +18,7 @@ function QueueRouter(){
 	 */
 	this._queues = {};
 }
-
+//TODO: documentation!
 /**
  * 
  */
@@ -31,8 +31,12 @@ QueueRouter.prototype.addQueue = function addQueue(queueName, queueProcessorObje
 		this._queues[queueName] = queueProcessorObject;
 	}
 	else{
-		throw new Error('A queue already exists under this name - can not re-add!');
+		throw new Error('A queue already exists under name "' + queueName + '" - can not re-add!');
 	}
+};
+
+QueueRouter.prototype.queueExists = function queueExists(queueName){
+	return (typeof(this._queues[queueName]) === 'object');
 };
 
 QueueRouter.prototype.bindQueue = function bindQueue(queueName, routingKey){
@@ -49,9 +53,17 @@ QueueRouter.prototype.bindQueue = function bindQueue(queueName, routingKey){
 
 QueueRouter.prototype.listen = function listen(queueName, listenerFunction){
 	if(!this._queues[queueName]){
-		throw new Error('Can not listen on a non-existent queue');
+		throw new Error('Can not listen on a non-existent queue "' + queueName + '"!');
 	}
 	this._queues[queueName].setProcessorFunction(listenerFunction);
+	this._queues[queueName].start();
+};
+
+QueueRouter.prototype.pause = function pause(queueName){
+	this._queues[queueName].pause();
+};
+
+QueueRouter.prototype.resume = function resume(queueName){
 	this._queues[queueName].start();
 };
 
