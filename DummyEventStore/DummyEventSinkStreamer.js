@@ -4,7 +4,6 @@
 
 //TODO: module documentation
 var EventEmitter = require('events').EventEmitter;
-var QueueProcessor = require('./utils/QueueProcessor.js').QueueProcessor;
 var when = require('when');
 
 function DummyEventSinkStreamer(dummyEventSink){

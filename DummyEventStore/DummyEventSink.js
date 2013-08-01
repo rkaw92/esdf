@@ -4,7 +4,7 @@
 
 var when = require('when');
 var EventEmitter = require('events').EventEmitter;
-var QueueProcessor = require('./utils/QueueProcessor.js').QueueProcessor;
+var QueueProcessor = require('../utils/QueueProcessor.js').QueueProcessor;
 
 /**
  * Create a dummy Event Sink. The Event Sink can fully simulate sinking and rehydration, and stays in compliance with Promises/A.
@@ -61,13 +61,14 @@ DummyEventSink.prototype.sink = function sink(commit){
 			// Case 2: Some commits already in this sequence, but no slot number conflict.
 			if(this._streams[commit.sequenceID].length < commit.sequenceSlot){
 				this._streams[commit.sequenceID].push(commit);
-				this.dispatchQueue.push(commit);
 			}
 			else{
 				// Case 3: Slot number conflict.
 				return r.reject(new Error('DummyEventSink.sink:OptimisticConcurrencyException(' + commit.sequenceSlot + ',' + this._streams[commit.sequenceID].length + ')'));
 			}
 		}
+		// Dispatch the event to the dummy queue.
+		this.dispatchQueue.push(commit);
 		return r.resolve(true);
 	}
 	else{

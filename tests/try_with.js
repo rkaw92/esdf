@@ -1,4 +1,4 @@
-var DummyEventSink = require('../DummyEventSink.js').DummyEventSink;
+var DummyEventSink = require('../DummyEventStore/DummyEventSink.js').DummyEventSink;
 var EventSourcedAggregate = require('../EventSourcedAggregate').EventSourcedAggregate;
 var Event = require('../Event').Event;
 var tryWith = require('../utils').tryWith;

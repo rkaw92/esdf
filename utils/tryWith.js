@@ -5,7 +5,6 @@
 var when = require('when');
 var enrichError = require('./enrichError.js').enrichError;
 var hashTransform = require('./hashTransform.js').hashTransform;
-var DummyEventSink = require('../DummyEventSink.js').DummyEventSink;
 
 //TODO: Document this function.
 //TODO: Major cleanup, possibly a rewrite.
