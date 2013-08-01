@@ -7,7 +7,6 @@ var enrichError = require('./enrichError.js').enrichError;
 var hashTransform = require('./hashTransform.js').hashTransform;
 
 //TODO: Document this function.
-//TODO: Major cleanup, possibly a rewrite.
 function tryWith(eventSink, ARConstructor, ARID, userFunction, options){
 	if(!options){
 		options = {}; // Because referring to undefined's properties (as could be the case below) is an error in JS.
@@ -34,7 +33,7 @@ function tryWith(eventSink, ARConstructor, ARID, userFunction, options){
 		// Rehydrate the constructed object.
 		function generateErrorHandler(errorName){
 			return function _tryWith_error(err){
-				enrichError(err, 'tryWith', errorName);
+				enrichError(err, 'tryWithErrorType', errorName);
 				failureLogger(err);
 				// In both cases - optimistic concurrency exceptions and other errors - the delay is applied.
 				delay(_tryWith_singlePass);
@@ -44,8 +43,11 @@ function tryWith(eventSink, ARConstructor, ARID, userFunction, options){
 		var _tryWith_commitError = generateErrorHandler('commitError');
 		var _tryWith_rehydrationError = generateErrorHandler('rehydrationError');
 		
-		// Use the original event sink to rehydrate the AR. (Note that we can not use AR.eventSink, as it may have been replaced by the alternate for command deduplication.)
-		eventSink.rehydrate(AR, ARID).then(
+		//TODO: snapshotting support
+		var lastLoadedCommit;
+		
+		// Use the event sink to rehydrate the AR, only asking it for commits which the snapshot does not reflect.
+		eventSink.rehydrate(AR, ARID, {since: lastLoadedCommit}).then(
 			function _tryWith_rehydrated(rehydrationMetadata){
 				// Try to execute the provided function. If the execution itself fails, do not retry.
 				try{

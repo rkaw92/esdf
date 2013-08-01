@@ -23,7 +23,7 @@ describe('tryWith', function(){
 			ar._stageEvent(new Event('DummyEvent', {bull: "crap"}));
 		}, {
 			failureLogger: function(err){
-				if(err.labels['tryWith'] === 'commitError'){
+				if(err.labels && err.labels['tryWithErrorType'] === 'commitError'){
 					++commit_fail_count;
 				}
 				if(commit_fail_count >= 5){ sink._wantSinkSuccess = true; } },
