@@ -1,0 +1,6 @@
+=== TODO ===
+* Move Event Sourcing components to a dedicated directory
+* Create the CQRS part of the framework
+	* Command envelope for ARs' use in deduplication?
+	* Reporting Store simple interface / wrapper / container
+* 

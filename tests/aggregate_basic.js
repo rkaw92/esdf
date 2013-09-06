@@ -1,6 +1,7 @@
-var DummyEventSink = require('../DummyEventStore/DummyEventSink.js').DummyEventSink;
+var DummyEventSink = require('../EventStore/DummyEventSink.js').DummyEventSink;
 var EventSourcedAggregate = require('../EventSourcedAggregate').EventSourcedAggregate;
 var Event = require('../Event').Event;
+var loadAggregate = require('../utils/loadAggregate.js').loadAggregate;
 var when = require('when');
 var assert = require('assert');
 
@@ -63,23 +64,27 @@ describe('EventSourcedAggregate', function(){
 	
 	describe('#rehydrate', function(){
 		it('should save and rehydrate the aggregate root', function(test_done){
+			
+			function OkayAggregate(){
+				this.init();
+				this.ok = false;
+				this.on('okayed', (function(event, commit){
+					this.ok = true;
+				}).bind(this));
+			}
+			OkayAggregate.prototype = new EventSourcedAggregate();
+			
 			var ar2 = new EventSourcedAggregate();
 			ar2._aggregateID = 'dummy3';
 			ar2._eventSink = new DummyEventSink();
 			ar2._stageEvent(new Event('okayed', {take: 4}));
 			ar2.commit().then(function(){
 				// When we have committed the AR's events, load another instance of the same entity and see if the event shows up.
-				var ar3 = new EventSourcedAggregate();
-				ar3._aggregateID = ar2._aggregateID;
-				ar3._eventSink = ar2._eventSink;
-				ar3.on('okayed', function(){
-					// This is an ok flag. If the event handler is not called for some reason, it will not be set, so we'll know the event sink did not reliably rehydrate us.
-					this.ok = true;
-				});
-				var rehydration_promise = ar3._eventSink.rehydrate(ar3, ar3._aggregateID);
-				rehydration_promise.then(function(){
+				loadAggregate(OkayAggregate, 'dummy3', ar2._eventSink).then(
+				function _aggregateLoaded(ar3){
 					test_done(ar3.ok ? null : new Error('Expected ar3.ok to be true, but instead got: ' + ar3.ok));
-				}, test_done, function(ev){console.log('Notify:', ev);});
+				}
+				);
 			},
 			function(reason){
 				// In case of error, we pass the rejection reason right to the test framework.

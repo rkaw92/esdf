@@ -3,6 +3,7 @@
  */
 
 var EventEmitter = require('eventemitter2').EventEmitter2;
+var AggregateSnapshot = require('./utils/AggregateSnapshot.js').AggregateSnapshot;
 var when = require('when');
 var uuid = require('uuid');
 
@@ -85,6 +86,13 @@ EventSourcedAggregate.prototype._stageEvent = function _stageEvent(event){
 	return true;
 };
 
+//TODO: documentation (especially concerning the hack below)
+EventSourcedAggregate.prototype._getSnapshotData = function _getSnapshotData(){
+	throw new Error('Unimplemented!');
+};
+EventSourcedAggregate.prototype._getSnapshotData.unimplemented = true;
+
+
 /**
  * Save all staged events to the Event Sink (assigned earlier manually from outside to the Aggregate's "_eventSink" property).
  * Emits an "error" event should any saving errors occur (allowing higher layers to reload the Aggregate and retry whatever they were doing with it).
@@ -102,13 +110,22 @@ EventSourcedAggregate.prototype.commit = function commit(){
 	function _commitSinkSucceeded(result){
 		self._stagedEvents = [];
 		self._nextSequenceNumber = self._nextSequenceNumber + 1;
-		//TODO: Work out the resolution format - verbatim pass-through from the lower layer, or a wrapper around it?
 		return emitDeferred.resolver.resolve(result);
 	},
 	function _commitSinkFailed(reason){
 		return emitDeferred.resolver.reject(reason);
 	}); //This is a promise (thenable), so return its consumer-facing part.
 	return emitDeferred.promise;
+};
+
+EventSourcedAggregate.prototype.saveSnapshot = function saveSnapshot(){
+	var self = this;
+	if(typeof(this._getSnapshotData) === 'function' && !this._getSnapshotData.unimplemented){
+		return this._snapshotter.saveSnapshot(new AggregateSnapshot(this._aggregateID, this._getSnapshotData(), (this._nextSequenceNumber - 1)));
+	}
+	else{
+		return when.reject('Not saving snapshot - aggregate does not implement _getSnapshotData()');
+	}
 };
 
 module.exports.EventSourcedAggregate = EventSourcedAggregate;

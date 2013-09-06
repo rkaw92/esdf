@@ -25,8 +25,9 @@ function Event(eventType, eventPayload, eventID){
  * @param {Object} flattenedEvent The object to reconstruct from. Will take its properties and construct a new Event based on them.
  * @returns {Event}
  */
+//TODO: test coverage of reconstruct()
 Event.reconstruct = function reconstruct(flattenedEvent){
-	return new Event(flattenedEvent.eventType, flattenedEvent.eventPayload, flattenedEvent.metadata);
+	return new Event(flattenedEvent.eventType, flattenedEvent.eventPayload, flattenedEvent.eventID);
 };
 
 module.exports.Event = Event;

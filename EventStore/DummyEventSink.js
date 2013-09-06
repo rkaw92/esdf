@@ -82,13 +82,18 @@ DummyEventSink.prototype.sink = function sink(commit){
  * @param {Object} object The object to apply the events to.
  * @param {String} stream_id The stream ID from which to load the events.
  */
-DummyEventSink.prototype.rehydrate = function rehydrate(object, sequenceID){
+//TODO: "since" - inclusive semantics (i.e. include the indicated slot in the result set!)
+DummyEventSink.prototype.rehydrate = function rehydrate(object, sequenceID, since){
 	var rehydrationDeferred = when.defer();
-	var rehydrateError = new Error('DummyEventSink.rehydrate:RehydrationEventRetrievalFailure');
+	var rehydrateError = new Error('DummyEventSink.rehydrate:RehydrationEventRetrievalDummyFailure');
+	var sinceCommit = (typeof(since) === 'number') ? Math.floor(since) : 1;
+	if(sinceCommit < 1){
+		return rehydrationDeferred.resolver.reject(new Error('DummyEventSink.rehydrate:Can not start applying commits since commit slot number lesser than 1!'));
+	}
 	rehydrateError.type = this._failureType;
 	if(this._wantRehydrateSuccess){
 		if(Array.isArray(this._streams[sequenceID])){
-			for(var commit_idx = 0; commit_idx < this._streams[sequenceID].length; ++commit_idx){
+			for(var commit_idx = sinceCommit - 1; commit_idx < this._streams[sequenceID].length; ++commit_idx){
 				var streamedCommit = this._streams[sequenceID][commit_idx];
 				object.applyCommit(streamedCommit);
 				rehydrationDeferred.resolver.notify('DummyEventSink.rehydrate:progress');

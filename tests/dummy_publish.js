@@ -1,9 +1,9 @@
-var DummyEventSink = require('../DummyEventStore/DummyEventSink.js').DummyEventSink;
-var DummyEventSinkStreamer = require('../DummyEventStore/DummyEventSinkStreamer.js').DummyEventSinkStreamer;
+var DummyEventSink = require('../EventStore/DummyEventSink.js').DummyEventSink;
+var DummyEventSinkStreamer = require('../EventStore/DummyEventSinkStreamer.js').DummyEventSinkStreamer;
 var QueueProcessor = require('../utils/QueueProcessor.js').QueueProcessor;
 var QueueRouter = require('../utils/QueueRouter.js').QueueRouter;
-var DummyEventBusPublisher = require('../DummyEventBus/DummyEventBusPublisher.js').DummyEventBusPublisher;
-var DummyEventBusSubscriber = require('../DummyEventBus/DummyEventBusSubscriber.js').DummyEventBusSubscriber;
+var DummyEventBusPublisher = require('../EventBus/DummyEventBusPublisher.js').DummyEventBusPublisher;
+var DummyEventBusSubscriber = require('../EventBus/DummyEventBusSubscriber.js').DummyEventBusSubscriber;
 var Event = require('../Event.js').Event;
 var Commit = require('../Commit.js').Commit;
 

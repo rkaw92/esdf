@@ -1,15 +1,17 @@
-var DummyEventSink = require('../DummyEventStore/DummyEventSink.js').DummyEventSink;
-var EventSourcedAggregate = require('../EventSourcedAggregate').EventSourcedAggregate;
+var DummyEventSink = require('../EventStore/DummyEventSink.js').DummyEventSink;
+var EventSourcedAggregate = require('../EventSourcedAggregate.js').EventSourcedAggregate;
+var AggregateLoader = require('../utils/loadAggregate.js');
 var Event = require('../Event').Event;
 var tryWith = require('../utils').tryWith;
 var when = require('when');
 var assert = require('assert');
 
 var sink = new DummyEventSink();
+var loader = AggregateLoader.createAggregateLoader(sink, undefined);
 
 describe('tryWith', function(){
 	it('should execute the given method and commit the results without any retries', function(test_finished){
-		tryWith(sink, EventSourcedAggregate, 'dummy-1', function(ar){
+		tryWith(loader, EventSourcedAggregate, 'dummy-1', function(ar){
 			ar._stageEvent(new Event('DummyEvent', {bull: "crap"}));
 		}).then(function(result){
 			test_finished(sink._streams['dummy-1'] ? undefined : new Error('No streams registered in the sink after commit!'));
@@ -19,7 +21,7 @@ describe('tryWith', function(){
 	it('should execute the given method and commit the results after exactly 5 unsuccessful tries', function(test_finished){
 		var commit_fail_count = 0;
 		sink._wantSinkSuccess = false;
-		tryWith(sink, EventSourcedAggregate, 'dummy-2', function(ar){
+		tryWith(loader, EventSourcedAggregate, 'dummy-2', function(ar){
 			ar._stageEvent(new Event('DummyEvent', {bull: "crap"}));
 		}, {
 			failureLogger: function(err){

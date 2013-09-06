@@ -48,6 +48,7 @@ function QueueProcessor(options){
  *  If the processor function returns something other than a promise, another _process is called recursively. Otherwise, it is called when the promise resolves.
  *  If the promise is rejected instead of resolved, an error processing, user-specified routine (options.errorLabelFunction) is executed (the code does NOT wait for any promise resolutions from the error labeler),
  *  after which the work item is pushed to the queue's back again, to be processed in the near future (after any current events).
+ * @param {function} processorFunction The function to use when processing. Passed down to subsequent recursive _process calls, to preserve uniformity in face of changing function assignment in the meantime.
  */
 QueueProcessor.prototype._process = function _process(processorFunction){
 	// Check for an end condition. If we have reached the queue's end, or the execution is paused, halt the recursion.
