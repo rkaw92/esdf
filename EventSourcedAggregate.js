@@ -18,13 +18,12 @@ var Commit = require('./Commit.js').Commit;
  * @constructor
  */
 function EventSourcedAggregate(){
-	this.init();
+	this._initializeAggregateMetadata();
 }
 //use the event emitter prototype to define listener interactions and the emit function
-EventSourcedAggregate.prototype = new EventEmitter();
 
 //TODO: document this abomination
-EventSourcedAggregate.prototype.init = function init(){
+EventSourcedAggregate.prototype._initializeAggregateMetadata = function _initializeAggregateMetadata(){
 	/**
 	 * Aggregate ID, used when loading (rehydrating) the object from an Event Sink.
 	 * @private
@@ -46,8 +45,6 @@ EventSourcedAggregate.prototype.init = function init(){
 	 */
 	this._eventSink = undefined;
 	
-	// Reset the backing event emitter's event handlers.
-	this._events = {};
 };
 
 /**
@@ -58,7 +55,8 @@ EventSourcedAggregate.prototype.init = function init(){
 EventSourcedAggregate.prototype.applyCommit = function applyCommit(commit){
 	var self = this;
 	commit.events.forEach(function(event){
-		self._applyEvent(event);
+		// The handler only gets the event and the commit metadata. It is not granted access to other events in the commit.
+		self._applyEvent(event, commit.metadata);
 	});
 	// Increment our internal sequence number counter.
 	this._nextSequenceNumber++;
@@ -68,10 +66,19 @@ EventSourcedAggregate.prototype.applyCommit = function applyCommit(commit){
 /**
  * Apply the event to the Aggregate by calling the appropriate registered event handlers.
  * 
- * @param {module:esdf/core/Event.Event} 
+ * @param {module:esdf/core/Event.Event} event The event to apply.
+ * @param {Object} commitMetadata Metadata associated with the commit containing the event - for example, context information about the command used when generating it.
+ * 
  */
-EventSourcedAggregate.prototype._applyEvent = function _applyEvent(event){
-	this.emit.call(this, event.eventType, event.eventPayload, event.metadata); //EventEmitter's actual in-process event publish - pass-through the same arguments that we got to it.
+//TODO: document the handler function contract using JSDoc or any other means available.
+EventSourcedAggregate.prototype._applyEvent = function _applyEvent(event, commitMetadata){
+	var handlerFunctionName = 'on' + event.eventType;
+	if(typeof(this[handlerFunctionName]) === 'function'){
+		this[handlerFunctionName](event, commitMetadata);
+	}
+	else{
+		throw new Error('Event type ' + event.eventType + ' applied, but no handler was available - bailing out to avoid programmer error!');
+	}
 };
 
 /**

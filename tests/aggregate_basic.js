@@ -4,6 +4,7 @@ var Event = require('../Event').Event;
 var loadAggregate = require('../utils/loadAggregate.js').loadAggregate;
 var when = require('when');
 var assert = require('assert');
+var EventEmitter = require('events').EventEmitter;
 
 var aggr = new EventSourcedAggregate();
 aggr._pages = [];
@@ -14,7 +15,10 @@ describe('EventSourcedAggregate', function(){
 	describe('#commit() success', function(){
 		it('should commit the event successfully, with a command ID attached', function(test_done){
 			aggr._eventSink._wantSinkSuccess = true;
-			aggr.on('PageCreated', function(eventPayload){this._pages.push({title: eventPayload.arg1, take: eventPayload.take});});
+			aggr.onPageCreated = function(event){
+				var eventPayload = event.eventPayload;
+				this._pages.push({title: eventPayload.arg1, take: eventPayload.take});
+			};
 			aggr._stageEvent(new Event('PageCreated', {arg1: 'val1', take: 1}));
 			assert.equal(aggr._pages[0].title, 'val1', 'AR event handler broken');
 			when(aggr.commit(),
@@ -47,8 +51,9 @@ describe('EventSourcedAggregate', function(){
 		it('should commit the event successfully, despite a retry in the middle', function(test_done){
 			aggr._eventSink._wantSinkSuccess = false;
 			aggr._eventSink._failureType = 'concurrency';
+			var sinkObserver = new EventEmitter();
 			var reloaded = false;
-			aggr.on('error', function(error){
+			sinkObserver.on('error', function(error){
 				aggr._eventSink._wantSinkSuccess = true;
 				reloaded = true; //in lieu of a real reload
 				aggr.commit().then(function(){
@@ -58,7 +63,7 @@ describe('EventSourcedAggregate', function(){
 				});
 			});
 			aggr._stageEvent(new Event('PageCreated', {arg1: 'val2', take: 3}));
-			aggr.commit().then(undefined, function(){aggr.emit('error');});
+			aggr.commit().then(undefined, function(){sinkObserver.emit('error');});
 		});
 	});
 	
@@ -66,18 +71,18 @@ describe('EventSourcedAggregate', function(){
 		it('should save and rehydrate the aggregate root', function(test_done){
 			
 			function OkayAggregate(){
-				this.init();
+				this._initializeAggregateMetadata();
 				this.ok = false;
-				this.on('okayed', (function(event, commit){
+				this.onOkayed = function(event, commitMetadata){
 					this.ok = true;
-				}).bind(this));
+				};
 			}
 			OkayAggregate.prototype = new EventSourcedAggregate();
 			
-			var ar2 = new EventSourcedAggregate();
+			var ar2 = new OkayAggregate();
 			ar2._aggregateID = 'dummy3';
 			ar2._eventSink = new DummyEventSink();
-			ar2._stageEvent(new Event('okayed', {take: 4}));
+			ar2._stageEvent(new Event('Okayed', {take: 4}));
 			ar2.commit().then(function(){
 				// When we have committed the AR's events, load another instance of the same entity and see if the event shows up.
 				loadAggregate(OkayAggregate, 'dummy3', ar2._eventSink).then(
