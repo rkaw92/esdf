@@ -37,7 +37,7 @@ function DummyEventSink(){
 	 * @public
 	 */
 	this.dispatchQueue = new QueueProcessor();
-};
+}
 
 /**
  * Attempts to save a commit (array of event objects) into the Event Store. Returns a promise which resolves upon a successful save and is rejected on any error (with the error being the rejection reason verbatim).
@@ -82,7 +82,6 @@ DummyEventSink.prototype.sink = function sink(commit){
  * @param {Object} object The object to apply the events to.
  * @param {String} stream_id The stream ID from which to load the events.
  */
-//TODO: "since" - inclusive semantics (i.e. include the indicated slot in the result set!)
 DummyEventSink.prototype.rehydrate = function rehydrate(object, sequenceID, since){
 	var rehydrationDeferred = when.defer();
 	var rehydrateError = new Error('DummyEventSink.rehydrate:RehydrationEventRetrievalDummyFailure');

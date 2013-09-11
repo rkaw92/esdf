@@ -1,6 +1,8 @@
 === TODO ===
+* Use 'on'+eventName methods rather than EventEmitter.on() for a more semantic and verifiable handler set-up
+* Provide a separate Repository component, encapsulating tryWith and a loader
 * Move Event Sourcing components to a dedicated directory
-* Create the CQRS part of the framework
+* SOA elements
 	* Command envelope for ARs' use in deduplication?
+* Create the CQRS part of the framework
 	* Reporting Store simple interface / wrapper / container
-* 

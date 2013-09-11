@@ -83,6 +83,6 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 	_tryWith_singlePass();
 	
 	return callerDeferred.promise;
-};
+}
 
 module.exports.tryWith = tryWith;

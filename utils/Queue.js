@@ -9,7 +9,7 @@ function DelayedShiftArrayQueue(options){
 	//Initialize the backing array.
 	this.backingStore = [];
 	this.backingStoreOffset = 0;
-};
+}
 
 Queue.prototype._reset = function _reset(){
 	this.backingStore = this.backingStore.slice(this.backingStoreOffset, this.backingStore.length);
@@ -20,7 +20,7 @@ Queue.prototype.push = function push(element){
 	this.backingStore.push(element);
 };
 
-Queue.prototype.pull = function pull(element){
+Queue.prototype.pull = function pull(){
 	if(this.backingStoreOffset < this.backingStore.length){
 		var element = this.backingStore[this.backingStoreOffset];
 		this.backingStoreOffset++;

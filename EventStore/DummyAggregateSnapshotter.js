@@ -12,7 +12,7 @@ var AggregateSnapshot = require('../utils/AggregateSnapshot.js').AggregateSnapsh
  */
 function DummyAggregateSnapshotter(){
 	this._snapshots = {};
-};
+}
 
 //TODO: documentation
 //TODO: type enforcement on aggregateSnapshot

@@ -25,7 +25,7 @@ function QueueProcessor(options){
 		options = {};
 	}
 	// Initialize the queue using the provided constructor (Array by default).
-	this._queue = typeof(options.queueConstructor) === 'function' ? (new options.queueConstructor()) : (new Array());
+	this._queue = typeof(options.queueConstructor) === 'function' ? (new options.queueConstructor()) : [];
 	// Set starting flags. By default, we are not processing at construction time.
 	this._processing = false;
 	this._paused = true;
@@ -41,7 +41,7 @@ function QueueProcessor(options){
 	}
 	
 	this._notifier = new EventEmitter2();
-};
+}
 
 /**
  * Main queue processing function. Shifts ("pops") one element from the queue and schedules an execution of the processor function on it via setImmediate.

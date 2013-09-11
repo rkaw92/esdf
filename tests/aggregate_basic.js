@@ -92,11 +92,12 @@ describe('EventSourcedAggregate', function(){
 			});
 		});
 	});
-	
-// 	describe('#command deduplication', function(){
-// 		it('should return undefined from the method wrapper call, rather than generate an exception', function(){
-// 			aggr.dummyCommand = EventSourcedAggregate.deduplicateCommand(function(){throw new Error('Should not be called!');});
-// 			return ((aggr.dummyCommand('command-1', 'a', 'b', 'c') === undefined && aggr._executedCommands['command-1']) ? null : new Error('Command has not been deduplicated!'));
-// 		});
-// 	});
+	/*
+	describe('#command deduplication', function(){
+		it('should return undefined from the method wrapper call, rather than generate an exception', function(){
+			aggr.dummyCommand = EventSourcedAggregate.deduplicateCommand(function(){throw new Error('Should not be called!');});
+			return ((aggr.dummyCommand('command-1', 'a', 'b', 'c') === undefined && aggr._executedCommands['command-1']) ? null : new Error('Command has not been deduplicated!'));
+		});
+	});
+	*/
 });

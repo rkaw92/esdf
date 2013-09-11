@@ -6,7 +6,7 @@ var when = require('when');
 
 function NoOpSnapshotter(){
 	
-};
+}
 NoOpSnapshotter.prototype.loadSnapshot = function loadSnapshot(ARID){
 	return when.reject('Dummy no-op snapshotter - rejecting load promise. To use a real snapshotter, pass it to the loadAggregate function.');
 };
@@ -40,7 +40,7 @@ function loadAggregate(ARConstructor, ARID, eventSink, snapshotter){
 			snapshotter = new NoOpSnapshotter();
 		}
 		ARObject._snapshotter = snapshotter;
-	};
+	}
 	constructAggregate();
 	
 	// Define the rehydration function. It will resolve the top-level promise for us, so that there is no need to call anything else to finish the loading.
@@ -52,7 +52,7 @@ function loadAggregate(ARConstructor, ARID, eventSink, snapshotter){
 				loadDeferred.resolver.reject,
 				loadDeferred.resolver.notify
 		);
-	};
+	}
 	
 	when(snapshotter.loadSnapshot(ARID),
 	function _snapshotLoaded(snapshot){
@@ -85,7 +85,7 @@ function loadAggregate(ARConstructor, ARID, eventSink, snapshotter){
 	loadDeferred.resolver.notify);
 	
 	return loadDeferred.promise;
-};
+}
 
 /**
  * Create a closure that will subsequently load any AR, without specifying the event sink and snapshotter each time.
@@ -96,7 +96,7 @@ function createAggregateLoader(eventSink, snapshotter){
 	return function _boundAggregateLoader(ARConstructor, ARID){
 		return loadAggregate(ARConstructor, ARID, eventSink, snapshotter);
 	};
-};
+}
 
 module.exports.loadAggregate = loadAggregate;
 module.exports.createAggregateLoader = createAggregateLoader;

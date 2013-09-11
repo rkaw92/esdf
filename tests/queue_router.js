@@ -13,7 +13,7 @@ describe('QueueRouter', function(){
 	describe('#bindQueue', function(){
 		it('should bind the previously-added queue to a routing key', function(){
 			router.bindQueue('q1', 'testCategory.testKey');
-		})
+		});
 	});
 	describe('#listen', function(){
 		it('should set up a listener function on a queue and execute it on a message', function(testDone){

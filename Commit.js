@@ -39,6 +39,7 @@ Commit.prototype.getMetadata = function getMetadata(){
 	return this.metadata;
 };
 
+//TODO: consider adding a standard serialize implementation
 /**
  * Initialize a commit based on its flattened form (i.e. a plain Object with its methods and prototype information stripped).
  * @static

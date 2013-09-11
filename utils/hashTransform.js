@@ -16,6 +16,6 @@ function hashTransform(input, transformKey){
 	var hasher = crypto.createHash('md5');
 	hasher.update(input + '|' + transformKey, 'utf8');
 	return hasher.digest('hex').toLowerCase();
-};
+}
 
 module.exports.hashTransform = hashTransform;
