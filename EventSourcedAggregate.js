@@ -87,7 +87,6 @@ EventSourcedAggregate.prototype._applyEvent = function _applyEvent(event, commit
  * @param {module:esdf/core/Event.Event} event The event to be enqueued for committing later.
  */
 EventSourcedAggregate.prototype._stageEvent = function _stageEvent(event){
-	event.aggregateID = this._aggregateID;
 	this._stagedEvents.push(event);
 	this._applyEvent(event);
 	return true;
