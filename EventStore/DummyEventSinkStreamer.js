@@ -14,7 +14,6 @@ function DummyEventSinkStreamer(dummyEventSink){
 	this._sinkDispatchQueue = dummyEventSink.dispatchQueue;
 	this._publisherAssigned = false;
 }
-DummyEventSinkStreamer.prototype = new EventEmitter();
 
 /**
  * Assign a publisher object whose publishCommit method will be called with every commit read.
