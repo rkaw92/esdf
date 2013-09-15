@@ -45,6 +45,7 @@ Commit.prototype.getMetadata = function getMetadata(){
  * @static
  */
 Commit.reconstruct = function reconstruct(flattenedCommit){
+	//TODO: reconstruct events, too!
 	return new Commit(flattenedCommit.events, flattenedCommit.sequenceID, flattenedCommit.sequenceSlot, flattenedCommit.metadata);
 };
 

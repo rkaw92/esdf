@@ -1,5 +1,6 @@
 === TODO ===
 * Use 'on'+eventName methods rather than EventEmitter.on() for a more semantic and verifiable handler set-up
+* REEMIT!
 * Provide a separate Repository component, encapsulating tryWith and a loader
 * Move Event Sourcing components to a dedicated directory
 * SOA elements
