@@ -15,7 +15,7 @@ aggr._aggregateID = 'dummy1';
 
 describe('EventSourcedAggregate', function(){
 	describe('.commit() success', function(){
-		it('should commit the event successfully, with a command ID attached', function(test_done){
+		it('should commit the event in a commit successfully', function(test_done){
 			aggr._eventSink._wantSinkSuccess = true;
 			aggr.onPageCreated = function(event){
 				var eventPayload = event.eventPayload;

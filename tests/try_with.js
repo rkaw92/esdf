@@ -47,22 +47,5 @@ describe('tryWith', function(){
 		function(reason){test_finished(reason ? reason : new Error('tryWith callback rejected!'));});
 	});
 	
-	it('should execute the given method twice, giving the same result the second time as the first time', function(test_finished){
-		var commandID = 'dead-beef-1234'; // Not much of an UUID, but it will do.
-		// Assign a method to the AR. The method should be naturally non-idempotent - calling it the second time should produce an error outside of tryWith.
-		EventSourcedAggregate.prototype.initializeExclusively = function(){
-			if(!this.alreadyInitialized){
-				this.stage('InitializedExclusively');
-				return true;
-			}
-			else{
-				throw new Error('Exclusive initialization is only possible once!');
-			}
-		};
-		// Issue the command for the first time...
-		//tryWith(sink, EventSourcedAggregate, 'dummy-3', );
-		// And the second time.
-		//TODO
-		test_finished();
-	});
+	it('should execute the given method twice, giving the same result the second time as the first time');
 });
