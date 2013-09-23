@@ -10,7 +10,6 @@ var sink = new DummyEventSink();
 var loader = AggregateLoader.createAggregateLoader(sink, undefined);
 
 function DummyAggregate(){
-	this._initializeAggregateMetadata();
 }
 DummyAggregate.prototype = new EventSourcedAggregate();
 DummyAggregate.prototype.onDummyEvent = function(){}; // Complete and utter ignorance.

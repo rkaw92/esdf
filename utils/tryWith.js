@@ -18,8 +18,19 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 	// Allow the caller to specify a failure logger function, to which all intermediate errors will be passed.
 	var failureLogger = (options.failureLogger) ? options.failureLogger : function(){};
 	
-	// Whether to retry execution until success, even if the provided callback's promise is rejected or if it throws an exception. Should NOT normally be used. For very special cases only.
-	var retryOnRejection = options.retryOnRejection;
+	//TODO: take the default retry strategy from a separate file.
+	var retryStrategyFactory = (typeof(options.retryStrategy) === 'function') ? options.retryStrategy : function DefaultInfiniteRetryFactory(){
+		return (function DefaultInfiniteRetry(failure){
+			if(typeof(failure) === 'object' && failure !== null && failure.critical){
+				return false;
+			}
+			else{
+				return true;
+			}
+		});
+	};
+	// Construct a retry predicate function using the provided strategy factory.
+	var shouldTryAgain = retryStrategyFactory();
 	
 	// Initialize the promise used for notifying the caller of the result.
 	var callerDeferred = when.defer();
@@ -28,11 +39,20 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 	function _tryWith_singlePass(){
 		// Prepare an error handler function factory.
 		function generateErrorHandler(errorName){
+			// The function returned by this factory will be used to retry or fail and exit the whole attempt.
 			return function _tryWith_error(err){
-				enrichError(err, 'tryWithErrorType', errorName);
-				failureLogger(err);
-				// In both cases - optimistic concurrency exceptions and other errors - the delay is applied.
-				delay(_tryWith_singlePass);
+				var strategyAllowsAnotherTry = shouldTryAgain(err);
+				if(strategyAllowsAnotherTry){
+					// The strategy says it's ok to retry:
+					enrichError(err, 'tryWithErrorType', errorName);
+					failureLogger(err);
+					// In both cases - optimistic concurrency exceptions and other errors - the "delay" is applied (mostly, not to overflow the stack).
+					delay(_tryWith_singlePass);
+				}
+				else{
+					// A disqualifying error, according to the strategy - no point in any retries. Give up now.
+					callerDeferred.resolver.reject(err);
+				}
 			};
 		}
 		// Now, instantiate actual error handler functions, from the factory defined above.
@@ -53,7 +73,7 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 						// The commit is resolved - this is the end of our work. Report a resolution to the caller.
 						callerDeferred.resolver.resolve(userFunctionResult);
 						// Also, if snapshotting is enabled, we can now save the snapshot "in the background".
-						//TODO: snapshotting strategy - every N calls? perhaps offload this decision to the AR?
+						//TODO: accept a snapshotting strategy.
 						AR.saveSnapshot();
 					},
 					// The commit has been rejected - use the standard error handler to retry.

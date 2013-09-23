@@ -9,25 +9,18 @@ var Event = require('./Event.js');
  * @param {module:esdf/core/Event.Event[]} events A list of events that the commit is composed of.
  * @param {String} sequenceID Character-based ID (typically a GUID) of the stream to which this commit belongs.
  * @param {Number} sequenceSlot The slot number this commit is meant to occupy within the sequence. Only one commit may take a particular slot.
+ * @param {String} aggregateType Name of the aggregate type, as reported by the proper EventSourcedAggregate.
+ * @param {Object} metadata The additional information, in a map format, associated with this commit.
  */
-function Commit(events, sequenceID, sequenceSlot, metadata){
-	if(!Array.isArray(events)){
-		throw new Error('events must be an array while constructing Commit');
-	}
-	if(typeof(sequenceID) !== 'string'){
-		if(typeof(sequenceID) === 'number'){
-			sequenceID = sequenceID + '';
-		}
-		else{
-			throw new Error('sequenceID is not a string while constructing Commit');
-		}
-	}
-	if(!sequenceSlot){
-		throw new Error('sequenceSlot not a number, or zero, while constructing Commit');
-	}
+function Commit(events, sequenceID, sequenceSlot, aggregateType, metadata){
+	if(!Array.isArray(events)){ throw new Error('events must be an array while constructing Commit'); }
+	if(typeof(sequenceID) !== 'string'){ throw new Error('sequenceID is not a string while constructing Commit'); }
+	if(!sequenceSlot){ throw new Error('sequenceSlot not a number, or zero, while constructing Commit'); }
+	
 	this.events = events;
 	this.sequenceID = sequenceID;
 	this.sequenceSlot = sequenceSlot;
+	this.aggregateType = aggregateType;
 	this.metadata = metadata ? metadata : {};
 }
 

@@ -36,7 +36,7 @@ function loadAggregate(ARConstructor, ARID, eventSink, snapshotter){
 		ARObject._eventSink = eventSink;
 		// If no snapshotter has been passed (or is not needed/used), instead of complicating logic, we simply replace it locally with a stub that knows no aggregates and rejects all loads.
 		//  This happens in constructAggregate since it relies on the AR object existing.
-		if(!snapshotter || !ARObject.applySnapshot){
+		if(!snapshotter || !ARObject.supportsSnapshots()){
 			snapshotter = new NoOpSnapshotter();
 		}
 		ARObject._snapshotter = snapshotter;

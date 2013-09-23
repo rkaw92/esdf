@@ -1,8 +1,11 @@
 === TODO ===
-* Use 'on'+eventName methods rather than EventEmitter.on() for a more semantic and verifiable handler set-up
-* REEMIT!
-* Provide a separate Repository component, encapsulating tryWith and a loader
-* Move Event Sourcing components to a dedicated directory
+* Snapshot tests
+* Tests for corner cases (AR type mismatch when applying events, concurrency exceptions, failures at random points in tryWith) [WIP]
+* REEMIT! (separate streamer instance, perhaps, with a counter reset?) (should this be handled in another layer than the framework?)
+* Refactor the AR so that it no longer commits itself (tryWith should do that)
+	* tryWith needs a better name!
+* Provide a separate Repository component (binder?), encapsulating tryWith and a loader
+	* Repository is not a good name for this functionality!
 * SOA elements
 	* Command envelope for ARs' use in deduplication?
 * Create the CQRS part of the framework

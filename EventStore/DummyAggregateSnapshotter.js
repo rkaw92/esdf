@@ -31,7 +31,7 @@ DummyAggregateSnapshotter.prototype.saveSnapshot = function saveSnapshot(aggrega
 DummyAggregateSnapshotter.prototype.loadSnapshot = function loadSnapshot(aggregateID){
 	var loadDeferred = when.defer();
 	setImmediate((function(){
-		if(this._snapshots[aggregateID]){
+		if(AggregateSnapshot.isAggregateSnapshot(this._snapshots[aggregateID])){
 			loadDeferred.resolver.resolve(this._snapshots[aggregateID]);
 		}
 		else{

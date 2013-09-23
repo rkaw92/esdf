@@ -1,10 +1,12 @@
 var DummyEventSink = require('../EventStore/DummyEventSink.js').DummyEventSink;
 var EventSourcedAggregate = require('../EventSourcedAggregate').EventSourcedAggregate;
 var Event = require('../Event').Event;
+var Commit = require('../Commit').Commit;
 var loadAggregate = require('../utils/loadAggregate.js').loadAggregate;
 var when = require('when');
 var assert = require('assert');
 var EventEmitter = require('events').EventEmitter;
+var util = require('util');
 
 var aggr = new EventSourcedAggregate();
 aggr._pages = [];
@@ -12,7 +14,7 @@ aggr._eventSink = new DummyEventSink();
 aggr._aggregateID = 'dummy1';
 
 describe('EventSourcedAggregate', function(){
-	describe('#commit() success', function(){
+	describe('.commit() success', function(){
 		it('should commit the event successfully, with a command ID attached', function(test_done){
 			aggr._eventSink._wantSinkSuccess = true;
 			aggr.onPageCreated = function(event){
@@ -32,7 +34,7 @@ describe('EventSourcedAggregate', function(){
 		});
 	});
 	
-	describe('#commit() failure', function(){
+	describe('.commit() failure', function(){
 		it('should fail to emit the event', function(test_done){
 			aggr._eventSink._wantSinkSuccess = false;
 			aggr._stageEvent(new Event('PageCreated', {arg1: 'val1', take: 2}));
@@ -47,7 +49,7 @@ describe('EventSourcedAggregate', function(){
 		});
 	});
 	
-	describe('#retry test', function(){
+	describe('.retry test', function(){
 		it('should commit the event successfully, despite a retry in the middle', function(test_done){
 			aggr._eventSink._wantSinkSuccess = false;
 			aggr._eventSink._failureType = 'concurrency';
@@ -67,15 +69,15 @@ describe('EventSourcedAggregate', function(){
 		});
 	});
 	
-	describe('#rehydrate', function(){
+	describe('.rehydrate', function(){
 		it('should save and rehydrate the aggregate root', function(test_done){
 			
 			function OkayAggregate(){
-				this._initializeAggregateMetadata();
 				this.ok = false;
 				this.onOkayed = function(event, commitMetadata){
 					this.ok = true;
 				};
+				this._aggregateType = undefined;
 			}
 			OkayAggregate.prototype = new EventSourcedAggregate();
 			
@@ -88,8 +90,8 @@ describe('EventSourcedAggregate', function(){
 				loadAggregate(OkayAggregate, 'dummy3', ar2._eventSink).then(
 				function _aggregateLoaded(ar3){
 					test_done(ar3.ok ? null : new Error('Expected ar3.ok to be true, but instead got: ' + ar3.ok));
-				}
-				);
+				},
+				test_done);
 			},
 			function(reason){
 				// In case of error, we pass the rejection reason right to the test framework.
@@ -97,12 +99,18 @@ describe('EventSourcedAggregate', function(){
 			});
 		});
 	});
-	/*
-	describe('#command deduplication', function(){
-		it('should return undefined from the method wrapper call, rather than generate an exception', function(){
-			aggr.dummyCommand = EventSourcedAggregate.deduplicateCommand(function(){throw new Error('Should not be called!');});
-			return ((aggr.dummyCommand('command-1', 'a', 'b', 'c') === undefined && aggr._executedCommands['command-1']) ? null : new Error('Command has not been deduplicated!'));
+	describe('.applyCommmit', function(){
+		it('should apply a commit to the aggregate root', function(){
+			function PickyAggregate(){
+				this._aggregateType = 'PickyAggregate';
+				this.ok = false;
+			}
+			PickyAggregate.prototype.onPickySampleEvent = function(){
+				this.ok = true;
+			};
+			util.inherits(PickyAggregate, EventSourcedAggregate);
+			var picky = new PickyAggregate();
+			picky.applyCommit(new Commit([], 'picky', 1, 'PickyAggregate'));
 		});
 	});
-	*/
 });

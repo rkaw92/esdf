@@ -94,7 +94,12 @@ DummyEventSink.prototype.rehydrate = function rehydrate(object, sequenceID, sinc
 		if(Array.isArray(this._streams[sequenceID])){
 			for(var commit_idx = sinceCommit - 1; commit_idx < this._streams[sequenceID].length; ++commit_idx){
 				var streamedCommit = this._streams[sequenceID][commit_idx];
-				object.applyCommit(streamedCommit);
+				try{
+					object.applyCommit(streamedCommit);
+				}
+				catch(err){
+					return rehydrationDeferred.resolver.reject(err);
+				}
 				rehydrationDeferred.resolver.notify('DummyEventSink.rehydrate:progress');
 			}
 		}
