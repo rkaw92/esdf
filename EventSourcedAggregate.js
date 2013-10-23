@@ -22,14 +22,6 @@ function AggregateTypeMismatch(expected, got){
 }
 util.inherits(AggregateTypeMismatch, Error);
 
-function AggregateDefinitionError(message){
-	this.name = 'AggregateDefinitionError';
-	this.message = message;
-	this.labels = {
-		critical: true
-	};
-}
-
 function AggregateUsageError(message){
 	this.name = 'AggregateUsageError';
 	this.message = message;
@@ -37,6 +29,7 @@ function AggregateUsageError(message){
 		critical: true
 	};
 }
+util.inherits(AggregateUsageError, Error);
 
 //TODO: use real, well-defined methods for assigning the EventSink, ID and aggregateType. Refactor the users.
 /**
@@ -139,14 +132,15 @@ EventSourcedAggregate.prototype.applySnapshot = function applySnapshot(snapshot)
 	if(AggregateSnapshot.isAggregateSnapshot(snapshot)){
 		if(typeof(this._applySnapshot) === 'function'){
 			if(snapshot.aggregateType === this._aggregateType){
-				this._applySnapshot();
+				this._applySnapshot(snapshot);
+				this._nextSequenceNumber = snapshot.lastSlotNumber + 1;
 			}
 			else{
 				throw new AggregateTypeMismatch(this._aggregateType, snapshot.aggregateType);
 			}
 		}
 		else{
-			throw new AggregateDefinitionError('This aggregate does not support snapshot application (needs to implement _applySnapshot).');
+			throw new AggregateUsageError('This aggregate does not support snapshot application (needs to implement _applySnapshot).');
 		}
 	}
 	else{
@@ -172,6 +166,9 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
 	var emitDeferred = when.defer(); //emission promise - to be resolved when the event batch is saved in the database
 	// NOTE: Sinking an empty commit *is a valid operation* from the AR's point of view! It is up to the eventSink how it handles this.
 	// Try to sink the commit.
+	if(!this._stagedEvents){
+		this._stagedEvents = [];
+	}
 	var commitObject = new Commit(this._stagedEvents, this._aggregateID, this._nextSequenceNumber, this._aggregateType, metadata);
 	when(self._eventSink.sink(commitObject),
 	function _commitSinkSucceeded(result){
@@ -188,7 +185,7 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
 EventSourcedAggregate.prototype.saveSnapshot = function saveSnapshot(){
 	var self = this;
 	if(typeof(this._getSnapshotData) === 'function' && !this._getSnapshotData.unimplemented){
-		return this._snapshotter.saveSnapshot(new AggregateSnapshot(this._aggregateID, this._getSnapshotData(), (this._nextSequenceNumber - 1)));
+		return this._snapshotter.saveSnapshot(new AggregateSnapshot(this._aggregateType, this._aggregateID, this._getSnapshotData(), (this._nextSequenceNumber - 1)));
 	}
 	else{
 		//TODO: Construct an error here? Or just leave as undefined?

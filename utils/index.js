@@ -9,5 +9,7 @@
  */
 
 module.exports.tryWith = require('./tryWith.js').tryWith;
+module.exports.loadAggregate = require('./loadAggregate.js').loadAggregate;
+module.exports.createAggregateLoader = require('./loadAggregate.js').createAggregateLoader;
 module.exports.enrichError = require('./enrichError.js').enrichError;
 module.exports.hashTransform = require('./hashTransform.js').hashTransform;

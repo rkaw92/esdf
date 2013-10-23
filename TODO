@@ -1,5 +1,6 @@
 === TODO ===
-* Snapshot tests
+* Snapshot tests [WIP; still need an Aggregate+Snapshot test]
+* Fix JSDoc and all test cases to use # properly for instance methods rather than .
 * Tests for corner cases (AR type mismatch when applying events, concurrency exceptions, failures at random points in tryWith) [WIP]
 * REEMIT! (separate streamer instance, perhaps, with a counter reset?) (should this be handled in another layer than the framework?)
 * Refactor the AR so that it no longer commits itself (tryWith should do that)

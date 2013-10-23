@@ -1,7 +1,7 @@
 var DummyEventSink = require('../EventStore/DummyEventSink.js').DummyEventSink;
-var EventSourcedAggregate = require('../EventSourcedAggregate').EventSourcedAggregate;
-var Event = require('../Event').Event;
-var Commit = require('../Commit').Commit;
+var EventSourcedAggregate = require('../EventSourcedAggregate.js').EventSourcedAggregate;
+var Event = require('../Event.js').Event;
+var Commit = require('../Commit.js').Commit;
 var loadAggregate = require('../utils/loadAggregate.js').loadAggregate;
 var when = require('when');
 var assert = require('assert');
@@ -112,5 +112,6 @@ describe('EventSourcedAggregate', function(){
 			var picky = new PickyAggregate();
 			picky.applyCommit(new Commit([], 'picky', 1, 'PickyAggregate'));
 		});
+		//TODO: corner cases (aggregateType mismatch etc.)
 	});
 });

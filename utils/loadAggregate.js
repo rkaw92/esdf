@@ -30,18 +30,19 @@ function loadAggregate(ARConstructor, ARID, eventSink, snapshotter){
 	var loadDeferred = when.defer();
 	// Initialize the AR we're going to be populating.
 	var ARObject;
-	function constructAggregate(){
+	function _constructAggregate(){
 		ARObject = new ARConstructor();
 		ARObject._aggregateID = ARID;
 		ARObject._eventSink = eventSink;
+		ARObject._nextSequenceNumber = 1;
 		// If no snapshotter has been passed (or is not needed/used), instead of complicating logic, we simply replace it locally with a stub that knows no aggregates and rejects all loads.
-		//  This happens in constructAggregate since it relies on the AR object existing.
+		//  This happens in _constructAggregate since it relies on the AR object existing.
 		if(!snapshotter || !ARObject.supportsSnapshots()){
 			snapshotter = new NoOpSnapshotter();
 		}
 		ARObject._snapshotter = snapshotter;
 	}
-	constructAggregate();
+	_constructAggregate();
 	
 	// Define the rehydration function. It will resolve the top-level promise for us, so that there is no need to call anything else to finish the loading.
 	function _rehydrateAggregate(sinceCommit){
@@ -66,7 +67,7 @@ function loadAggregate(ARConstructor, ARID, eventSink, snapshotter){
 			function _snapshotNotApplied(){
 				// Snapshot application failed - we should now rehydrate from the start, using all commits since the first one.
 				//  Thus, we construct the object anew to avoid operating on unclean state.
-				constructAggregate();
+				_constructAggregate();
 				_rehydrateAggregate(1);
 			},
 			loadDeferred.resolver.notify
@@ -74,7 +75,7 @@ function loadAggregate(ARConstructor, ARID, eventSink, snapshotter){
 		}
 		catch(e){
 			// Snapshot not applied - same as above.
-			constructAggregate();
+			_constructAggregate();
 			_rehydrateAggregate(1);
 		}
 	},

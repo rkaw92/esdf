@@ -3,6 +3,7 @@
  */
 
 var when = require('when');
+var util = require('util');
 var AggregateSnapshot = require('../utils/AggregateSnapshot.js').AggregateSnapshot;
 
 /*
@@ -15,13 +16,12 @@ function DummyAggregateSnapshotter(){
 }
 
 //TODO: documentation
-//TODO: type enforcement on aggregateSnapshot
 DummyAggregateSnapshotter.prototype.saveSnapshot = function saveSnapshot(aggregateSnapshot){
 	var saveDeferred = when.defer();
 	if(!AggregateSnapshot.isAggregateSnapshot(aggregateSnapshot)){
-		return saveDeferred.resolver.reject(new Error('Object passed for saving is not a valid aggregate snapshot.'));
+		return saveDeferred.resolver.reject(new Error('Object passed for saving is not a valid aggregate snapshot. Dump: ' + util.inspect(aggregateSnapshot)));
 	}
-	this._snapshots[aggregateID] = aggregateSnapshot;
+	this._snapshots[aggregateSnapshot.aggregateID] = aggregateSnapshot;
 	setImmediate(function(){
 		saveDeferred.resolver.resolve();
 	});
@@ -40,3 +40,5 @@ DummyAggregateSnapshotter.prototype.loadSnapshot = function loadSnapshot(aggrega
 	}).bind(this));
 	return loadDeferred.promise;
 };
+
+module.exports.DummyAggregateSnapshotter = DummyAggregateSnapshotter;
