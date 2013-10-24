@@ -1,6 +1,6 @@
 # ESDF
 ...is a framework which lets you develop Domain-Driven applications using Event Sourcing in Node.js. It aims to achieve this by providing a useful set of base prototypes and utility functions that your application logic can be built on.
-ESDF is heavily based on Promises/A (namely, the [https://github.com/cujojs/when](when.js) implementation) - all asynchronous functions in the codebase return promises instead of accepting callbacks.
+ESDF is heavily based on Promises/A (namely, the [when.js](https://github.com/cujojs/when) implementation) - all asynchronous functions in the codebase return promises instead of accepting callbacks.
 
 ## Domain-Driven Design
 This framework is light on the DDD side, only defining an AggregateRoot in terms of the EventSourcingAggregate prototype. It does not deal with ValueObjects (meant to be represented by plain old JavaScript objects) nor embedding aggregates in ARs - it assumes a flat structure of AggregateRoots, and all events belong simply to the main Aggregate.
