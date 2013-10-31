@@ -2,7 +2,6 @@
  * @module esdf/core/EventSourcedAggregate
  */
 
-var EventEmitter = require('eventemitter2').EventEmitter2;
 var AggregateSnapshot = require('./utils/AggregateSnapshot.js').AggregateSnapshot;
 var when = require('when');
 var uuid = require('uuid');
