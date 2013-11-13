@@ -21,6 +21,15 @@ function AggregateTypeMismatch(expected, got){
 }
 util.inherits(AggregateTypeMismatch, Error);
 
+function AggregateDefinitionError(message){
+	this.name = 'AggregateDefinitionError';
+	this.message = message;
+	this.labels = {
+		critical: true
+	};
+}
+util.inherits(AggregateDefinitionError, Error);
+
 function AggregateUsageError(message){
 	this.name = 'AggregateUsageError';
 	this.message = message;
