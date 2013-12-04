@@ -14,14 +14,14 @@ function DummyEventBusPublisher(){
 	this._router = new QueueRouter();
 }
 
-DummyEventBusPublisher.prototype.buildRoutingKeyForEvent = function buildRoutingKeyForEvent(eventObject){
-	return eventObject.eventType;
+DummyEventBusPublisher.prototype.buildRoutingKeyForEvent = function buildRoutingKeyForEvent(eventObject, commitObject){
+	return commitObject.aggregateType + '.' + eventObject.eventType;
 };
 
 DummyEventBusPublisher.prototype.publishCommit = function publishCommit(commitObject){
 	var events = commitObject.getEvents();
 	events.forEach((function(event){
-		this._router.publish(this.buildRoutingKeyForEvent(event), {event: event, metadata: commitObject.getMetadata()});
+		this._router.publish(this.buildRoutingKeyForEvent(event, commitObject), {event: event, commit: commitObject});
 	}).bind(this));
 };
 

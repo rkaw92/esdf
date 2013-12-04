@@ -9,6 +9,8 @@ module.exports.utils = require('./utils');
 module.exports.test = {
 	DummyEventSink: require('./EventStore/DummyEventSink.js').DummyEventSink,
 	DummyEventSinkStreamer: require('./EventStore/DummyEventSinkStreamer.js').DummyEventSinkStreamer,
+	DummyEventBusPublisher: require('./EventBus/DummyEventBusPublisher.js').DummyEventBusPublisher,
+	DummyEventBusSubscriber: require('./EventBus/DummyEventBusSubscriber.js').DummyEventBusSubscriber,
 	DummyAggregateSnapshotter: require('./EventStore/DummyAggregateSnapshotter.js').DummyAggregateSnapshotter
 };
 

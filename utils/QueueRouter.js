@@ -51,6 +51,7 @@ QueueRouter.prototype.bindQueue = function bindQueue(queueName, routingKey){
 	});
 };
 
+//TODO: Consider adding multiple listener support for feature parity with AMQP.
 QueueRouter.prototype.listen = function listen(queueName, listenerFunction){
 	if(!this._queues[queueName]){
 		throw new Error('Can not listen on a non-existent queue "' + queueName + '"!');

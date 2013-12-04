@@ -2,7 +2,6 @@
  * @module esdf/core/EventSourcedAggregate
  */
 
-var EventEmitter = require('eventemitter2').EventEmitter2;
 var AggregateSnapshot = require('./utils/AggregateSnapshot.js').AggregateSnapshot;
 var SnapshotStrategy = require('./utils/SnapshotStrategy.js');
 var when = require('when');
@@ -11,7 +10,6 @@ var util = require('util');
 
 var Commit = require('./Commit.js').Commit;
 
-//TODO: Error class documentation.
 /**
  * Aggregate-event type mismatch. Generated when a commit labelled with another AggregateType is applied to an aggregate.
  * Also occurs when a snapshot type mismatch takes place.
@@ -27,6 +25,16 @@ function AggregateTypeMismatch(expected, got){
 	};
 }
 util.inherits(AggregateTypeMismatch, Error);
+
+//TODO: describe this error.
+function AggregateEventHandlerMissingError(message){
+	this.name = 'AggregateEventHandlerMissingError';
+	this.message = message;
+	this.labels = {
+		critical: true
+	};
+}
+util.inherits(AggregateEventHandlerMissingError, Error);
 
 /**
  * Generated when an aggregate was attempted to be used incorrectly.
@@ -106,16 +114,27 @@ EventSourcedAggregate.prototype.applyCommit = function applyCommit(commit){
 		self._applyEvent(event, commit);
 	});
 	// Increment our internal sequence number counter.
-	this._nextSequenceNumber++;
+	this.updateSequenceNumber(commit.sequenceSlot);
 };
 
+/**
+ * Conditionally increase the internal next sequence number if the passed argument is greater or equal to it. Sets the next sequence number to the last commit number + 1.
+ * @param {number} lastCommitNumber The number of the processed commit.
+ */
+EventSourcedAggregate.prototype.updateSequenceNumber = function updateSequenceNumber(lastCommitNumber){
+	if(typeof(this._nextSequenceNumber) !== 'number'){
+		this._nextSequenceNumber = 1;
+	}
+	if(Number(lastCommitNumber) >= this._nextSequenceNumber){
+		this._nextSequenceNumber = Number(lastCommitNumber) + 1;
+	}
+};
 
 /**
  * Apply the event to the Aggregate by calling the appropriate registered event handlers.
  * 
  * @param {module:esdf/core/Event.Event} event The event to apply.
  * @param {module:esdf/core/Commit.Commit} commit The commit that the event is part of.
- * 
  */
 //TODO: document the handler function contract using JSDoc or any other means available.
 EventSourcedAggregate.prototype._applyEvent = function _applyEvent(event, commit){
@@ -125,9 +144,20 @@ EventSourcedAggregate.prototype._applyEvent = function _applyEvent(event, commit
 	}
 	else{
 		if(!this._allowMissingEventHandlers){
-			throw new AggregateDefinitionError('Event type ' + event.eventType + ' applied, but no handler was available - bailing out to avoid programmer error!');
+			throw new AggregateEventHandlerMissingError('Event type ' + event.eventType + ' applied, but no handler was available - bailing out to avoid programmer error!');
 		}
 	}
+};
+
+/**
+ * Apply the event to the Aggregate from an outside source (i.e. non-intrinsic).
+ * 
+ * @param {module:esdf/core/Event.Event} event The event to apply.
+ * @param {module:esdf/core/Commit.Commit} commit The commit that the event is part of.
+ */
+EventSourcedAggregate.prototype.applyEvent = function applyEvent(event, commit){
+	this._applyEvent(event, commit);
+	this.updateSequenceNumber(commit.sequenceSlot);
 };
 
 /**
@@ -157,7 +187,7 @@ EventSourcedAggregate.prototype.applySnapshot = function applySnapshot(snapshot)
 		if(this.supportsSnapshotApplication()){
 			if(snapshot.aggregateType === this._aggregateType){
 				this._applySnapshot(snapshot);
-				this._nextSequenceNumber = snapshot.lastSlotNumber + 1;
+				this.updateSequenceNumber(snapshot.lastSlotNumber);
 			}
 			else{
 				throw new AggregateTypeMismatch(this._aggregateType, snapshot.aggregateType);
@@ -236,11 +266,11 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
  */
 EventSourcedAggregate.prototype.saveSnapshot = function saveSnapshot(){
 	var self = this;
-	if(this.supportsSnapshotGeneration){
+	if(this.supportsSnapshotGeneration()){
 		return this._snapshotter.saveSnapshot(new AggregateSnapshot(this._aggregateType, this._aggregateID, this._getSnapshotData(), (this._nextSequenceNumber - 1)));
 	}
 	else{
-		return when.reject(new AggregateDefinitionError('An aggregate needs to implement _getSnapshotData in order to be able to save snapshots'));
+		return when.reject(new AggregateUsageError('An aggregate needs to implement _getSnapshotData in order to be able to save snapshots'));
 	}
 };
 
