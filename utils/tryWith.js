@@ -5,6 +5,7 @@
 var when = require('when');
 var enrichError = require('./enrichError.js').enrichError;
 var hashTransform = require('./hashTransform.js').hashTransform;
+var RetryStrategy = require('./RetryStrategy.js');
 
 //TODO: Document this function.
 function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
@@ -17,20 +18,12 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 	var delay = (options.delegationFunction) ? options.delegationFunction : setImmediate;
 	// Allow the caller to specify a failure logger function, to which all intermediate errors will be passed.
 	var failureLogger = (options.failureLogger) ? options.failureLogger : function(){};
-	
-	//TODO: take the default retry strategy from a separate file.
-	var retryStrategyFactory = (typeof(options.retryStrategy) === 'function') ? options.retryStrategy : function DefaultInfiniteRetryFactory(){
-		return (function DefaultInfiniteRetry(failure){
-			if(typeof(failure) === 'object' && failure !== null && failure.critical){
-				return false;
-			}
-			else{
-				return true;
-			}
-		});
+
+	// By default, an infinite retry strategy is employed.
+	var retryStrategy = (typeof(options.retryStrategy) === 'function') ? options.retryStrategy : RetryStrategy.CounterStrategyFactory(Infinity);
+	var shouldTryAgain = function shouldTryAgain(err){
+		return typeof(retryStrategy(err)) !== 'object';
 	};
-	// Construct a retry predicate function using the provided strategy factory.
-	var shouldTryAgain = retryStrategyFactory();
 	
 	// Initialize the promise used for notifying the caller of the result.
 	var callerDeferred = when.defer();
@@ -68,13 +61,11 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 				when(userFunction(AR),
 				function _tryWith_userFunctionResolved(userFunctionResult){
 					// If the callback function promise has resolved, proceed to commit.
-					AR.commit().then(
+					AR.commit(options.commitMetadata || {}).then(
 					function _tryWith_commitResolved(commitResult){
 						// The commit is resolved - this is the end of our work. Report a resolution to the caller.
 						callerDeferred.resolver.resolve(userFunctionResult);
-						// Also, if snapshotting is enabled, we can now save the snapshot "in the background".
-						//TODO: accept a snapshotting strategy.
-						AR.saveSnapshot();
+						// Note that all snapshotting responsibility is internal to the Aggregate itself. tryWith does not make any attempts to save the aggregate's state beyond the commit operation.
 					},
 					// The commit has been rejected - use the standard error handler to retry.
 					_tryWith_commitError

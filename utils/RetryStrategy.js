@@ -35,6 +35,7 @@ function CombinedStrategyFactory(strategyFactories){
 	});
 }
 
+
 function CounterStrategyFactory(counter){
 	var currentCounter = Number(counter);
 	return (function CounterStrategy(lastError){

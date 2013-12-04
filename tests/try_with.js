@@ -33,7 +33,11 @@ describe('tryWith', function(){
 				if(err.labels && err.labels.tryWithErrorType === 'commitError'){
 					++commit_fail_count;
 				}
-				if(commit_fail_count >= 5){ sink._wantSinkSuccess = true; } },
+				else{
+					console.log('Unknown error type!');
+				}
+				if(commit_fail_count >= 5){ sink._wantSinkSuccess = true; }
+			},
 			commandID: 'FAILME'
 		}).then(function(result){
 			if(!sink._streams['dummy-2']){
@@ -46,6 +50,4 @@ describe('tryWith', function(){
 		},
 		function(reason){test_finished(reason ? reason : new Error('tryWith callback rejected!'));});
 	});
-	
-	it('should execute the given method twice, giving the same result the second time as the first time');
 });
