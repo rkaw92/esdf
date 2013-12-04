@@ -18,14 +18,14 @@ describe('DummyEventPublisher', function(){
 	it('should activate an event handler subscribed to the publisher\'s queue', function(testDone){
 		var q1 = subscriber.queue('q1');
 		var q2 = subscriber.queue('q2');
-		q1.bind('TestEventType');
+		q1.bind('DummyAggregateType.TestEventType');
 		q1.listen(function(event){
 			testDone();
 		});
 		sink.sink(new Commit([
 			new Event('TestEventType', {}),
 			new Event('OtherIrrelevantEventType', {})
-		], 'seq1', 1, {meta1: 'metavalue1'}
+		], 'seq1', 1, 'DummyAggregateType', {meta1: 'metavalue1'}
 		));
 	});
 });
