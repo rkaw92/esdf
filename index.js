@@ -1,10 +1,17 @@
-//TODO: complete refactoring of exports
-module.exports.core = {};
-module.exports.core.EventSourcedAggregate = require('./EventSourcedAggregate.js').EventSourcedAggregate;
-module.exports.core.Event = require('./Event.js').Event;
-module.exports.core.Commit = require('./Commit.js').Commit;
+module.exports.core = {
+	EventSourcedAggregate: require('./EventSourcedAggregate.js').EventSourcedAggregate,
+	Event: require('./Event.js').Event,
+	Commit: require('./Commit.js').Commit
+};
+
 module.exports.utils = require('./utils');
-module.exports.test = {};
-module.exports.test.DummyEventSink = require('./EventStore/DummyEventSink.js').DummyEventSink;
-module.exports.test.DummyEventSinkStreamer = require('./EventStore/DummyEventSinkStreamer.js').DummyEventSinkStreamer;
-module.exports.test.DummyAggregateSnapshotter = require('./EventStore/DummyAggregateSnapshotter.js').DummyAggregateSnapshotter;
+
+module.exports.test = {
+	DummyEventSink: require('./EventStore/DummyEventSink.js').DummyEventSink,
+	DummyEventSinkStreamer: require('./EventStore/DummyEventSinkStreamer.js').DummyEventSinkStreamer,
+	DummyAggregateSnapshotter: require('./EventStore/DummyAggregateSnapshotter.js').DummyAggregateSnapshotter
+};
+
+module.exports.services = {
+	ServiceContainer: require('./Services/ServiceContainer.js').ServiceContainer
+};
