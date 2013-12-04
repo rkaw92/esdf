@@ -92,16 +92,27 @@ EventSourcedAggregate.prototype.applyCommit = function applyCommit(commit){
 		self._applyEvent(event, commit);
 	});
 	// Increment our internal sequence number counter.
-	this._nextSequenceNumber++;
+	this.updateSequenceNumber(commit.sequenceSlot);
 };
 
+/**
+ * Conditionally increase the internal next sequence number if the passed argument is greater or equal to it. Sets the next sequence number to the last commit number + 1.
+ * @param {number} lastCommitNumber The number of the processed commit.
+ */
+EventSourcedAggregate.prototype.updateSequenceNumber = function updateSequenceNumber(lastCommitNumber){
+	if(typeof(this._nextSequenceNumber) !== 'number'){
+		this._nextSequenceNumber = 1;
+	}
+	if(Number(lastCommitNumber) >= this._nextSequenceNumber){
+		this._nextSequenceNumber = Number(lastCommitNumber) + 1;
+	}
+};
 
 /**
  * Apply the event to the Aggregate by calling the appropriate registered event handlers.
  * 
  * @param {module:esdf/core/Event.Event} event The event to apply.
  * @param {module:esdf/core/Commit.Commit} commit The commit that the event is part of.
- * 
  */
 //TODO: document the handler function contract using JSDoc or any other means available.
 EventSourcedAggregate.prototype._applyEvent = function _applyEvent(event, commit){
@@ -112,6 +123,17 @@ EventSourcedAggregate.prototype._applyEvent = function _applyEvent(event, commit
 	else{
 		throw new AggregateDefinitionError('Event type ' + event.eventType + ' applied, but no handler was available - bailing out to avoid programmer error!');
 	}
+};
+
+/**
+ * Apply the event to the Aggregate from an outside source (i.e. non-intrinsic).
+ * 
+ * @param {module:esdf/core/Event.Event} event The event to apply.
+ * @param {module:esdf/core/Commit.Commit} commit The commit that the event is part of.
+ */
+EventSourcedAggregate.prototype.applyEvent = function applyEvent(event, commit){
+	this._applyEvent(event, commit);
+	this.updateSequenceNumber(commit.sequenceSlot);
 };
 
 /**
@@ -141,7 +163,7 @@ EventSourcedAggregate.prototype.applySnapshot = function applySnapshot(snapshot)
 		if(typeof(this._applySnapshot) === 'function'){
 			if(snapshot.aggregateType === this._aggregateType){
 				this._applySnapshot(snapshot);
-				this._nextSequenceNumber = snapshot.lastSlotNumber + 1;
+				this.updateSequenceNumber(snapshot.lastSlotNumber);
 			}
 			else{
 				throw new AggregateTypeMismatch(this._aggregateType, snapshot.aggregateType);
