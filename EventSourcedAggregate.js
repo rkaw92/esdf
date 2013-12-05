@@ -49,7 +49,6 @@ function AggregateUsageError(message){
 }
 util.inherits(AggregateUsageError, Error);
 
-//TODO: use real, well-defined methods for assigning the EventSink, ID and aggregateType. Refactor the users.
 /**
  * Basic constructor for creating an in-memory object representation of an Aggregate. Aggregates are basic business objects in the domain and the primary source of events.
  * An aggregate should typically listen to its own events (define on* event handlers) and react by issuing such state changes, since it is the only keeper of its own internal state.
@@ -98,6 +97,65 @@ function EventSourcedAggregate(){
 		this._allowMissingEventHandlers = false;
 }
 
+//TODO: Use real, well-defined methods for assigning the EventSink, ID and snapshotter.
+
+/**
+ * Set the Event Sink to be used by the aggregate during commit.
+ * @param {module:esdf/interfaces/EventSinkInterface} eventSink The Event Sink object to use.
+ */
+EventSourcedAggregate.prototype.setEventSink = function setEventSink(eventSink){
+	this._eventSink = eventSink;
+};
+
+/**
+ * Get the Event Sink in use.
+ * @returns {module:esdf/interfaces/EventSinkInterface}
+ */
+EventSourcedAggregate.prototype.getEventSink = function getEventSink(){
+	return this._eventSink;
+};
+
+/**
+ * Set the Aggregate ID of the instance. Used when saving commits, to mark as belonging to a particular entity.
+ * @param {string} aggregateID The identity (aggregate ID) to assume when committing.
+ */
+EventSourcedAggregate.prototype.setAggregateID = function setAggregateID(aggregateID){
+	this._aggregateID = aggregateID;
+};
+
+/**
+ * Get the Aggregate ID used when committing.
+ * @returns {string}
+ */
+EventSourcedAggregate.prototype.getAggregateID = function getAggregateID(){
+	return this._aggregateID;
+};
+
+/**
+ * Set the snapshotter to use when committing. Setting a snapshotter is optional, and if available,
+ *  it is only used when indicated by the snapshot strategy employed by the aggregate.
+ * @param {module:esdf/interfaces/AggregateSnapshotter} snapshotter The snapshotter object whose snapshot saving service to use.
+ */
+EventSourcedAggregate.prototype.setSnapshotter = function setSnapshotter(snapshotter){
+	this._snapshotter = snapshotter;
+};
+
+/**
+ * Get the snapshotter object in use.
+ * @returns {module:esdf/interfaces/AggregateSnapshotter}
+ */
+EventSourcedAggregate.prototype.getSnapshotter = function getSnapshotter(){
+	return this._snapshotter;
+};
+
+/**
+ * Get the sequence number that will be used when saving the next commit. For a cleanly-initialized aggregate, this equals 1.
+ * @returns {number}
+ */
+EventSourcedAggregate.prototype.getNextSequenceNumber = function getNextSequenceNumber(){
+	return this._nextSequenceNumber;
+};
+
 /**
  * Apply the given commit to the aggregate, causing it to apply each event, individually, one after another.
  * 
@@ -136,7 +194,7 @@ EventSourcedAggregate.prototype.updateSequenceNumber = function updateSequenceNu
  * @param {module:esdf/core/Event.Event} event The event to apply.
  * @param {module:esdf/core/Commit.Commit} commit The commit that the event is part of.
  */
-//TODO: document the handler function contract using JSDoc or any other means available.
+//TODO: Document the "on*" handler function contract using JSDoc or any other means available.
 EventSourcedAggregate.prototype._applyEvent = function _applyEvent(event, commit){
 	var handlerFunctionName = 'on' + event.eventType;
 	if(typeof(this[handlerFunctionName]) === 'function'){
@@ -230,6 +288,9 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
 	if(typeof(metadata) !== 'object' || metadata === null){
 		metadata = {};
 	}
+	if(typeof(this._nextSequenceNumber) !== 'number'){
+		this._nextSequenceNumber = 1;
+	}
 	var self = this;
 	var emitDeferred = when.defer(); //emission promise - to be resolved when the event batch is saved in the database
 	// Try to sink the commit. If empty, return success immediately.
@@ -243,13 +304,13 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
 	when(self._eventSink.sink(commitObject),
 	function _commitSinkSucceeded(result){
 		self._stagedEvents = [];
-		self._nextSequenceNumber = self._nextSequenceNumber + 1;
+		self.updateSequenceNumber(commitObject.sequenceSlot);
 		// Now that the commit has been saved, we proceed to save a snapshot if the snapshotting strategy tells us to (and we have a snapshot save provider).
 		//  Note that _snapshotStrategy is called with "this" set to the current aggregate, which makes it behave like a private method.
 		if(self.supportsSnapshotGeneration() && self._snapshotter && self._snapshotStrategy(commitObject)){
-			self.saveSnapshot();
+			self._saveSnapshot();
 			// Since saving a snapshot is never mandatory for correct operation of an event-sourced application, we do not have to react to errors.
-			//TODO: Find a way to get some notification out, so that the snapshot save failure can be logged somewhere. Promise handling (when() wrapping) of te saveSnapshot() above should be included.
+			//TODO: Find a way to get some notification out, so that the snapshot save failure can be logged somewhere. Promise handling (when() wrapping) of the _saveSnapshot() above should be included.
 		}
 		return emitDeferred.resolver.resolve(result);
 	},
@@ -264,7 +325,7 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
  * The aggregate needs to support snapshot generation, as determined by its supportsSnapshotGeneration() method's return value.
  * @returns {external:Promise} the promise that snapshot save will be carried out.
  */
-EventSourcedAggregate.prototype.saveSnapshot = function saveSnapshot(){
+EventSourcedAggregate.prototype._saveSnapshot = function _saveSnapshot(){
 	var self = this;
 	if(this.supportsSnapshotGeneration()){
 		return this._snapshotter.saveSnapshot(new AggregateSnapshot(this._aggregateType, this._aggregateID, this._getSnapshotData(), (this._nextSequenceNumber - 1)));

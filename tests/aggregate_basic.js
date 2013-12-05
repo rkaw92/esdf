@@ -10,13 +10,13 @@ var util = require('util');
 
 var aggr = new EventSourcedAggregate();
 aggr._pages = [];
-aggr._eventSink = new DummyEventSink();
-aggr._aggregateID = 'dummy1';
+aggr.setEventSink(new DummyEventSink());
+aggr.setAggregateID('dummy1');
 
 describe('EventSourcedAggregate', function(){
 	describe('.commit() success', function(){
 		it('should commit the event in a commit successfully', function(test_done){
-			aggr._eventSink._wantSinkSuccess = true;
+			aggr.getEventSink()._wantSinkSuccess = true;
 			aggr.onPageCreated = function(event){
 				var eventPayload = event.eventPayload;
 				this._pages.push({title: eventPayload.arg1, take: eventPayload.take});
@@ -36,7 +36,7 @@ describe('EventSourcedAggregate', function(){
 	
 	describe('.commit() failure', function(){
 		it('should fail to emit the event', function(test_done){
-			aggr._eventSink._wantSinkSuccess = false;
+			aggr.getEventSink()._wantSinkSuccess = false;
 			aggr._stageEvent(new Event('PageCreated', {arg1: 'val1', take: 2}));
 			when(aggr.commit(),
 			function(result){
@@ -51,12 +51,12 @@ describe('EventSourcedAggregate', function(){
 	
 	describe('.retry test', function(){
 		it('should commit the event successfully, despite a retry in the middle', function(test_done){
-			aggr._eventSink._wantSinkSuccess = false;
-			aggr._eventSink._failureType = 'concurrency';
+			aggr.getEventSink()._wantSinkSuccess = false;
+			aggr.getEventSink()._failureType = 'concurrency';
 			var sinkObserver = new EventEmitter();
 			var reloaded = false;
 			sinkObserver.on('error', function(error){
-				aggr._eventSink._wantSinkSuccess = true;
+				aggr.getEventSink()._wantSinkSuccess = true;
 				reloaded = true; //in lieu of a real reload
 				aggr.commit().then(function(){
 					test_done();
@@ -82,12 +82,12 @@ describe('EventSourcedAggregate', function(){
 			OkayAggregate.prototype = new EventSourcedAggregate();
 			
 			var ar2 = new OkayAggregate();
-			ar2._aggregateID = 'dummy3';
-			ar2._eventSink = new DummyEventSink();
+			ar2.setAggregateID('dummy3');
+			ar2.setEventSink(new DummyEventSink());
 			ar2._stageEvent(new Event('Okayed', {take: 4}));
 			ar2.commit().then(function(){
 				// When we have committed the AR's events, load another instance of the same entity and see if the event shows up.
-				loadAggregate(OkayAggregate, 'dummy3', ar2._eventSink).then(
+				loadAggregate(OkayAggregate, 'dummy3', ar2.getEventSink()).then(
 				function _aggregateLoaded(ar3){
 					test_done(ar3.ok ? null : new Error('Expected ar3.ok to be true, but instead got: ' + ar3.ok));
 				},

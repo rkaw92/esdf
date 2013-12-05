@@ -40,7 +40,7 @@ describe('EventSourcedAggregate', function(){
 			var aggr1 = new Snappy();
 			aggr1.applySnapshot(new AggregateSnapshot('Snappy', 'dummy', {ok: true}, 1));
 			assert.equal(aggr1.ok, true);
-			assert.equal(aggr1._nextSequenceNumber, 2);
+			assert.equal(aggr1.getNextSequenceNumber(), 2);
 		});
 		it('should fail to apply a snapshot to a non-supporting aggregate', function(){
 			var aggr2 = new NotSoSnappy();
@@ -66,14 +66,14 @@ describe('EventSourcedAggregate', function(){
 			}
 		});
 	});
-	describe('#saveSnapshot', function(){
+	describe('#_saveSnapshot', function(){
 		var snapshotDB = new DummyAggregateSnapshotter();
 		it('should save the snapshot to the database', function(done){
 			var aggr4 = new Snappy();
 			aggr4.okay(1234);
-			aggr4._snapshotter = snapshotDB;
-			aggr4._aggregateID = 'aggr4';
-			aggr4.saveSnapshot().then(done, done);
+			aggr4.setSnapshotter(snapshotDB);
+			aggr4.setAggregateID('aggr4');
+			aggr4._saveSnapshot().then(done, done);
 		});
 	});
 });
