@@ -4,6 +4,7 @@
 
 var AggregateSnapshot = require('./utils/AggregateSnapshot.js').AggregateSnapshot;
 var SnapshotStrategy = require('./utils/SnapshotStrategy.js');
+var dummyEmitterInstance = require('./utils/EmptySingletonEmitter.js').EmptySingletonEmitterInstance;
 var when = require('when');
 var uuid = require('uuid');
 var util = require('util');
@@ -94,10 +95,22 @@ function EventSourcedAggregate(){
 	 * Setting this flag to true will prevent error generation in such cases (when you need events without any handlers).
 	 * @type boolean
 	 */
-		this._allowMissingEventHandlers = false;
+	this._allowMissingEventHandlers = false;
+	/**
+	 * The object whose emit(operationOutcomeName, operationDetails) method shall be called when I/O operations finish or fail.
+	 * Supported operation names are ['CommitSinkSuccess', 'CommitSinkFailure', 'SnapshotSaveSuccess' 'SnapshotSaveFailure'].
+	 * For CommitSinkSuccess and CommitSinkFailure, the following fields in the operationDetails object are defined:
+	 *   commitObject: contains the complete commit object which was due to be saved
+	 * Additionally, CommitSinkFailure defines the following fields:
+	 *   failureReason: an error (from a lower layer - not necessarily an Error object) explaining why the sink operation failed
+	 * For SnapshotSaveSuccess and SnapshotSaveFailure, the following fields in the operationDetails object are defined:
+	 *   snapshotObject: contains the complete snapshot object which was due to be saved
+	 * Additionally, SnapshotSaveFailure defines the following fields:
+	 *   failureReason: an error (from a lower layer - not necessarily an Error object) explaining why the save operation failed
+	 * @type {external:EventEmitter}
+	 */
+	this._IOObserver = dummyEmitterInstance;
 }
-
-//TODO: Use real, well-defined methods for assigning the EventSink, ID and snapshotter.
 
 /**
  * Set the Event Sink to be used by the aggregate during commit.
@@ -305,16 +318,26 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
 	function _commitSinkSucceeded(result){
 		self._stagedEvents = [];
 		self.updateSequenceNumber(commitObject.sequenceSlot);
+		if(self._IOObserver){
+			self._IOObserver.emit('CommitSinkSuccess', {
+				commitObject: commitObject
+			});
+		}
 		// Now that the commit has been saved, we proceed to save a snapshot if the snapshotting strategy tells us to (and we have a snapshot save provider).
 		//  Note that _snapshotStrategy is called with "this" set to the current aggregate, which makes it behave like a private method.
 		if(self.supportsSnapshotGeneration() && self._snapshotter && self._snapshotStrategy(commitObject)){
 			self._saveSnapshot();
 			// Since saving a snapshot is never mandatory for correct operation of an event-sourced application, we do not have to react to errors.
-			//TODO: Find a way to get some notification out, so that the snapshot save failure can be logged somewhere. Promise handling (when() wrapping) of the _saveSnapshot() above should be included.
 		}
 		return emitDeferred.resolver.resolve(result);
 	},
 	function _commitSinkFailed(reason){
+		if(self._IOObserver){
+			self._IOObserver.emit('CommitSinkFailure', {
+				commitObject: commitObject,
+				failureReason: reason
+			});
+		}
 		return emitDeferred.resolver.reject(reason);
 	}); //This is a promise (thenable), so return its consumer-facing part.
 	return emitDeferred.promise;
@@ -328,7 +351,23 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
 EventSourcedAggregate.prototype._saveSnapshot = function _saveSnapshot(){
 	var self = this;
 	if(this.supportsSnapshotGeneration()){
-		return this._snapshotter.saveSnapshot(new AggregateSnapshot(this._aggregateType, this._aggregateID, this._getSnapshotData(), (this._nextSequenceNumber - 1)));
+		var snapshotObject = new AggregateSnapshot(this._aggregateType, this._aggregateID, this._getSnapshotData(), (this._nextSequenceNumber - 1));
+		return this._snapshotter.saveSnapshot(snapshotObject).then(
+		function _snapshotSaveSuccess(){
+			if(self._IOObserver){
+				self._IOObserver.emit('SnapshotSaveSuccess', {snapshotObject: snapshotObject});
+			}
+			return when.resolve();
+		},
+		function _snapshotSaveFailure(reason){
+			if(self._IOObserver){
+				self._IOObserver.emit('SnapshotSaveFailure', {
+					snapshotObject: snapshotObject,
+					failureReason: reason
+				});
+			}
+			return when.reject();
+		});
 	}
 	else{
 		return when.reject(new AggregateUsageError('An aggregate needs to implement _getSnapshotData in order to be able to save snapshots'));
