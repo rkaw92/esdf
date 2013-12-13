@@ -4,7 +4,6 @@
 
 var AggregateSnapshot = require('./utils/AggregateSnapshot.js').AggregateSnapshot;
 var SnapshotStrategy = require('./utils/SnapshotStrategy.js');
-var dummyEmitterInstance = require('./utils/EmptySingletonEmitter.js').EmptySingletonEmitterInstance;
 var when = require('when');
 var uuid = require('uuid');
 var util = require('util');
@@ -27,7 +26,10 @@ function AggregateTypeMismatch(expected, got){
 }
 util.inherits(AggregateTypeMismatch, Error);
 
-//TODO: describe this error.
+/*
+ * Event handler missing. An EventSourcedAggregate typically needs to implement on* handlers for all event types that it emits.
+ * You can disable this check by setting _allowMissingEventHandlers to true in the aggregate - this will let missing event handlers go unnoticed.
+ */
 function AggregateEventHandlerMissingError(message){
 	this.name = 'AggregateEventHandlerMissingError';
 	this.message = message;
@@ -109,7 +111,7 @@ function EventSourcedAggregate(){
 	 *   failureReason: an error (from a lower layer - not necessarily an Error object) explaining why the save operation failed
 	 * @type {external:EventEmitter}
 	 */
-	this._IOObserver = dummyEmitterInstance;
+	this._IOObserver = null;
 }
 
 /**
@@ -318,6 +320,8 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
 	function _commitSinkSucceeded(result){
 		self._stagedEvents = [];
 		self.updateSequenceNumber(commitObject.sequenceSlot);
+		//NOTE: The check below is a good candidate for refactoring into Aspect-Oriented Programming.
+		// ESDF Core does not support AOP as of now, though.
 		if(self._IOObserver){
 			self._IOObserver.emit('CommitSinkSuccess', {
 				commitObject: commitObject
