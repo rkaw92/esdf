@@ -1,5 +1,5 @@
 /**
- * @module esdf/Test/DummyEventBusSubscriber
+ * @module esdf/test/DummyEventBusSubscriber
  */
 
 var QueueProcessor = require('../utils/QueueProcessor.js').QueueProcessor;

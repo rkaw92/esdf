@@ -12,7 +12,6 @@ var EventEmitter2 = require('eventemitter2').EventEmitter2;
  * Pausing and starting can be used when you need to temporarily suspend processing for some reason (e.g. initially, because the processor function may not be ready yet).
  * 
  * @constructor
- * @static
  * @param {Object} [options] Additional settings to be applied to the queue processor.
  * @param {Object} [options.queue] An array-like queue object. Must support at least push(), shift(), and the length property. Having indexes is not required.
  * @param {module:esdf/utils/QueueProcessor#ProcessorFunction} [options.processorFunction] The processor function to use initially. If left out, no function will be assigned and one must be set afterwards, before starting processing.
@@ -48,7 +47,8 @@ function QueueProcessor(options){
  *  If the processor function returns something other than a promise, another _process is called recursively. Otherwise, it is called when the promise resolves.
  *  If the promise is rejected instead of resolved, an error processing, user-specified routine (options.errorLabelFunction) is executed (the code does NOT wait for any promise resolutions from the error labeler),
  *  after which the work item is pushed to the queue's back again, to be processed in the near future (after any current events).
- * @param {function} processorFunction The function to use when processing. Passed down to subsequent recursive _process calls, to preserve uniformity in face of changing function assignment in the meantime.
+ * @private
+ * @param {module:esdf/interfaces/QueueProcessorFunctionInterface} processorFunction The function to use when processing. Passed down to subsequent recursive _process calls, to preserve uniformity in face of changing function assignment in the meantime.
  */
 QueueProcessor.prototype._process = function _process(processorFunction){
 	// Check for an end condition. If we have reached the queue's end, or the execution is paused, halt the recursion.
@@ -126,7 +126,7 @@ QueueProcessor.prototype.start = function start(){
 /**
  * Prevent any further elements from being popped off the queue and any processor functions from starting execution, until start()ed again.
  *  The result is thenable, which allows you to wait until all tasks in progress have been processed and the processing has ceased.
- *  Pausing when already paused has no further effect.
+ *  Pausing when already paused has no further effect (when still pausing, many calls to pause() will result in many promises being returned, all of which will act correctly).
  * 
  * @returns {external:Promise} A promise that will be fulfilled when the processing ceases.
  */
@@ -136,7 +136,7 @@ QueueProcessor.prototype.pause = function pause(){
 		// Create the promise for delayed processing stop...
 		var stopDeferred = when.defer();
 		// When work really does stop, fulfil it!
-		this._notifier.once('WorkStopped', function _fulfilStopPromise(){
+		this._notifier.once('WorkStopped', function _fulfillStopPromise(){
 			stopDeferred.resolve();
 		});
 		return stopDeferred;
@@ -150,7 +150,7 @@ QueueProcessor.prototype.pause = function pause(){
 /**
  * Set the function used for processing enqueued elements. The function shall get the element as its only argument.
  *  Its return (and the promise's resolution, if applicable) should mark that it is OK to pop another element off the queue and process it.
- * @param {module:esdf/utils/QueueProcessor#ProcessorFunction} processorFunction The function used for processing. If asynchronous, must return a Promises/A-compliant promise.
+ * @param {module:esdf/interfaces/QueueProcessorFunctionInterface} processorFunction The function used for processing. If asynchronous, must return a Promises/A-compliant promise.
  */
 QueueProcessor.prototype.setProcessorFunction = function setProcessorFunction(processorFunction){
 	if(typeof(processorFunction) !== 'function'){
@@ -158,21 +158,5 @@ QueueProcessor.prototype.setProcessorFunction = function setProcessorFunction(pr
 	}
 	this._processorFunction = processorFunction;
 };
-
-// Make JSDoc happy - define the processor function type.
-//TODO: move this to a global interface to be used throughout all subscribers!
-/**
- * Function type used for processing enqueued items.
- * Processing other items does not occur until the function either returns a normal value, or a promise that it returned is resolved/rejected.
- * On rejection, the work item is re-queued to the back of the queue. If you want to get rid of the item from the queue, resolve the promise (possibly after writing the work item / error to an error queue...).
- * If not using promises, the function may also throw an exception to signal processing failure (treated the same as promise rejection).
- * 
- * @callback module:esdf/utils/QueueProcessor#ProcessorFunction
- * @function
- * @param workItem The item, taken from the queue, to be processed.
- * @returns {external:Promise} A promise when asynchronous work is involved.
- * @returns Any other type when only a simple, synchronous (blocking) operation is performed on the item.
- * @throws {Error} Anything (preferably an Error object) when an error is encountered.
- */
 
 module.exports.QueueProcessor = QueueProcessor;

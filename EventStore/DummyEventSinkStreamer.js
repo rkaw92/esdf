@@ -1,5 +1,5 @@
 /**
- * @module esdf/Test/DummyEventSinkStreamer
+ * @module esdf/test/DummyEventSinkStreamer
  */
 
 var EventEmitter = require('events').EventEmitter;

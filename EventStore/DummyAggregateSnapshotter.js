@@ -1,5 +1,5 @@
 /**
- * @module esdf/Test/DummyAggregateSnapshotter
+ * @module esdf/test/DummyAggregateSnapshotter
  */
 
 var when = require('when');

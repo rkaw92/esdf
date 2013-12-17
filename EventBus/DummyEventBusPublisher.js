@@ -1,5 +1,5 @@
 /**
- * @module esdf/Test/DummyEventBusPublisher
+ * @module esdf/test/DummyEventBusPublisher
  */
 
 var QueueRouter = require('../utils/QueueRouter.js').QueueRouter;

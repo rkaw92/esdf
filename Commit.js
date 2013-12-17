@@ -4,7 +4,7 @@
 var Event = require('./Event.js');
 
 /**
- * Construct a new commit. A commit is an atomic group of events, handled in an all-or-nothing manner by the infrastructure.
+ * Construct a new commit. A commit is an atomic group of events, handled in an all-or-nothing manner by an event sink. It is the basic unit of event storage in this framework.
  * @constructor
  * @param {module:esdf/core/Event.Event[]} events A list of events that the commit is composed of.
  * @param {String} sequenceID Character-based ID (typically a GUID) of the stream to which this commit belongs.

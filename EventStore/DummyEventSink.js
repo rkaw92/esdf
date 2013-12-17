@@ -1,5 +1,5 @@
 /**
- * @module esdf/Test/DummyEventSink
+ * @module esdf/test/DummyEventSink
  */
 
 var when = require('when');
@@ -15,26 +15,31 @@ function DummyEventSink(){
 	/**
 	 * Whether the next sink() attempt should succeed.
 	 * @public
+	 * @type {boolean}
 	 */
 	this._wantSinkSuccess = true;
 	/**
 	 * Whether the next rehydration attempt should succeed.
 	 * @public
+	 * @type {boolean}
 	 */
 	this._wantRehydrateSuccess = true;
 	/**
 	 * The type of failure to enrich the error with when a failure is requested via _wantSinkSuccess=false.
 	 * @public
+	 * @type {string}
 	 */
 	this._failureType = 'DummyEventSink test failure';
 	/**
 	 * The event streams holding the sunk data.
 	 * @private
+	 * @type {Object.<string, module:esdf/core/Commit[]>}
 	 */
 	this._streams = {};
 	/**
-	 * The EventSource-like local emitter. Used by dispatchers to get commit data from.
+	 * The EventSource-like local emitter. Used by Streamers to register a handler on.
 	 * @public
+	 * @type {module:esdf/utils/QueueProcessor.QueueProcessor}
 	 */
 	this.dispatchQueue = new QueueProcessor();
 }
@@ -44,7 +49,7 @@ function DummyEventSink(){
  * Since this is only a dummy Event Sink, all events are only saved into a temporary object, and are discarded when the DummyEventSink is destroyed.
  * All commits are, in addition to being loadable, also dispatched to the local eventSource.
  * 
- * @param {module:esdf/core/Commit.Commit}
+ * @param {module:esdf/core/Commit~Commit}
  * @returns {external:Promise} A Promise/A compliant object. Resolves when the commit sink is complete, rejects if there is a concurrency exception or any other type of error.
  */
 DummyEventSink.prototype.sink = function sink(commit){
@@ -77,17 +82,18 @@ DummyEventSink.prototype.sink = function sink(commit){
 };
 
 /**
- * Apply all the events from a given stream ID to the object passed using the object's emit() method (as in EventEmitter).
+ * Apply all the events from a given stream ID to the passed aggregate object.
  * 
- * @param {Object} object The object to apply the events to.
- * @param {String} stream_id The stream ID from which to load the events.
+ * @param {module:esdf/core/EventSourcedAggregate~EventSourcedAggregate} object The aggregate object to apply the events to.
+ * @param {string} stream_id The stream ID from which to load the events.
+ * @param {number} since The commit slot number to start the rehydration from (inclusive). Mainly used when the aggregate already has had some state applied, for example after loading a snapshot.
  */
 DummyEventSink.prototype.rehydrate = function rehydrate(object, sequenceID, since){
 	var rehydrationDeferred = when.defer();
 	var rehydrateError = new Error('DummyEventSink.rehydrate:RehydrationEventRetrievalDummyFailure');
 	var sinceCommit = (typeof(since) === 'number') ? Math.floor(since) : 1;
 	if(sinceCommit < 1){
-		return rehydrationDeferred.resolver.reject(new Error('DummyEventSink.rehydrate:Can not start applying commits since commit slot number lesser than 1!'));
+		return rehydrationDeferred.resolver.reject(new Error('DummyEventSink.rehydrate:Can not start applying commits from commit slot number lesser than 1!'));
 	}
 	rehydrateError.type = this._failureType;
 	if(this._wantRehydrateSuccess){
