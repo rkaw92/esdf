@@ -14,3 +14,4 @@ module.exports.createAggregateLoader = require('./loadAggregate.js').createAggre
 module.exports.enrichError = require('./enrichError.js').enrichError;
 module.exports.hashTransform = require('./hashTransform.js').hashTransform;
 module.exports.PublishMultiplexer = require('./PublishMultiplexer').PublishMultiplexer;
+module.exports.Repository = require('./Repository').Repository;
