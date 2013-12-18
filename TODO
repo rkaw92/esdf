@@ -7,19 +7,9 @@
 
 # Event Sourcing
 * REEMIT! (separate streamer instance, perhaps, with a counter reset?) (should this be handled in another layer than the framework?)
+	* A sourcing controller could be employed to manage event distribution to components
 
-# Service layer and error handling
-* Make tryWith abort by default, instead of retrying
-	* An error flag should make it possible to indicate a possible retry
-	* Optionally wrap errors in a user-supplied error container
-* Rework the error label system so that it supports error containment as the preferred method of enriching errors
-	* A new function, wrapError(errObject, newErrorConstructor) should be able to wrap existing errors
-		* The function should make sure that all labels are inherited by the outer error
-* Provide a separate Repository component (binder?), encapsulating tryWith and a loader
-	* Repository is not a good name for this functionality!
-* Refactor the AR so that it no longer commits itself (tryWith should do that)
-	* tryWith needs a better name!
-	
 # CQRS
 * Create the CQRS part of the framework
-	* Reporting Store simple interface / wrapper / container
+	* Reporting Store simple search interface
+	* A mapping container for 1:1 aggregate root projections into reporting stores
