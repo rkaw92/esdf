@@ -24,22 +24,52 @@ function Commit(events, sequenceID, sequenceSlot, aggregateType, metadata){
 	this.metadata = metadata ? metadata : {};
 }
 
+/**
+ * Get the events contained within this commit.
+ * @method
+ * @returns {module:esdf/core/Event~Event[]} An array containing all events within this commit, in the same order that they were staged in its source aggregate / added to the commit.
+ */
 Commit.prototype.getEvents = function getEvents(){
 	return this.events;
 };
 
+/**
+ * Get the metadata assigned to the particular Commit.
+ * @method
+ * @returns {Object} A free-form metadata object, containing any keys and values.
+ */
 Commit.prototype.getMetadata = function getMetadata(){
 	return this.metadata;
 };
 
-//TODO: consider adding a standard serialize implementation
 /**
- * Initialize a commit based on its flattened form (i.e. a plain Object with its methods and prototype information stripped).
+ * Convert a commit into a string form. Useful mainly when commits are saved or transmitted as strings, for example in simple key-value stores (Redis) or in string-based messaging systems (AMQP).
+ *  This uses JSON for encoding the commit object - the format can be relied upon (if a specific implementation wishes to use, for example, ProtocolBuffers, then it should not use toString() and do the conversion on its own).
+ * @returns {string} the commit encoded into a string, suitable for passing into the static {@link module:esdf/core/Commit~Commit.fromString} method.
+ */
+Commit.prototype.toString = function toString(){
+	return JSON.stringify(this);
+};
+
+/**
+ * Initialize and return a commit based on its "flattened" form (i.e. a plain Object with its methods and prototype information stripped).
+ * @method
  * @static
+ * @param {Object} flattenedCommit An object that has fields ['events', 'sequenceID', 'sequenceSlot', 'metadata'] and is not necessarily a Commit instance.
+ * @returns {module:esdf/core/Commit~Commit} A Commit instance with the fields initialized by values from the passed object's fields.
  */
 Commit.reconstruct = function reconstruct(flattenedCommit){
-	//TODO: reconstruct events, too!
+	//TODO: deep copy the event array and metadata.
 	return new Commit(flattenedCommit.events, flattenedCommit.sequenceID, flattenedCommit.sequenceSlot, flattenedCommit.metadata);
+};
+
+/**
+ * Initialize and return a commit based on its string-encoded form, as obtained by calling toString on a Commit instance.
+ * @param {string} stringifiedCommit The commit to be reconstructed after conversion to a string.
+ * @returns {module:esdf/core/Commit~Commit} The recovered commit object.
+ */
+Commit.fromString = function fromString(stringifiedCommit){
+	return reconstruct(JSON.parse(stringifiedCommit));
 };
 
 module.exports.Commit = Commit;
