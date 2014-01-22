@@ -3,23 +3,24 @@ var Event = require('./Event').Event;
 var util = require('util');
 var when = require('when');
 
-function SagaStage(name, accumulatorFunction){
+function SagaStage(name, acceptedEventTypes){
 	this.name = name;
 	this.transitions = {};
+	this.acceptedEventTypes = acceptedEventTypes;
 }
 SagaStage.prototype.addTransition = function addTransition(transition){
 	this.transitions[transition.name] = transition;
 	// Allow method chaining.
 	return this;
 };
-SagaStage.prototype.handleEvent = function handleEvent(event, commit, queuedEvents, accumulator){
+SagaStage.prototype.handleEvent = function handleEvent(event, commit, queuedEvents, accumulator, sagaAccumulator){
 	var specificMethodName = 'on' + event.eventType;
 	if(typeof(this[specificMethodName]) === 'function'){
-		this[specificMethodName](event, commit, queuedEvents, accumulator);
+		this[specificMethodName](event, commit, queuedEvents, accumulator, sagaAccumulator);
 	}
 	else{
 		if(typeof(this.defaultEventHandler) === 'function'){
-			this.defaultEventHandler(event, commit, queuedEvents, accumulator);
+			this.defaultEventHandler(event, commit, queuedEvents, accumulator, sagaAccumulator);
 		}
 	}
 };
@@ -27,9 +28,11 @@ SagaStage.prototype.handleEvent = function handleEvent(event, commit, queuedEven
 function SagaTransition(name, eventAcceptorFunction, actionFunction, transitionEventType, eventPayloadGenerator){
 	this.destination = null;
 	this.eventEndsTransition = eventAcceptorFunction;
-	this.performAction = actionFunction;
+	this.performAction = actionFunction || function(event, commit, queuedEvents, stageAccumulator, sagaAccumulator, environment){};
 	this.transitionEventType = transitionEventType;
-	this.eventPayloadGenerator = (typeof(eventPayloadGenerator) === 'function') ? eventPayloadGenerator : function(event, commit, queuedEvents, accumulator){};
+	this.eventPayloadGenerator = (typeof(eventPayloadGenerator) === 'function') ? eventPayloadGenerator : function(event, commit, queuedEvents, accumulator, globalAccumulator, actionResult){
+		return {};
+	};
 }
 
 SagaTransition.prototype.setDestination = function setDestination(destination){
@@ -45,25 +48,29 @@ util.inherits(Saga, EventSourcedAggregate);
 
 Saga.prototype._init = function _init(initialStage){
 	this._currentStage = initialStage;
-	this._currentStagePath = 'init';
+	this._currentStagePath = initialStage.name;
 	this._stageAccumulator = {};
+	this._globalAccumulator = {};
 	this._enqueuedEvents = [];
 	this._seenEventIDs = {};
 	this._error = null;
 	this._allowMissingEventHandlers = true;
 };
 
-Saga.prototype.processEvent = function processEvent(event, commit){
+Saga.prototype.processEvent = function processEvent(event, commit, environment){
 	var self = this;
 	// Guard clause: do not process duplicate events.
 	if(this._seenEventIDs[event.eventID]){
 		return when.resolve();
 	}
+	if(this.currentStage.acceptedEventTypes.indexOf(event.eventType) < 0){
+		return when.reject(new EventTypeNotAccepted('The saga does not accept this type of events at this stage - perhaps try processing at a later stage?'));
+	}
 	// Gather all transitions that are to occur. We use each transition's supplied decision function.
 	var transitionIntents = [];
 	for(var transitionKey in this._currentStage.transitions){
 		var currentTransition = this._currentStage.transitions[transitionKey];
-		var transitionDecision = currentTransition.eventEndsTransition(event, commit, this._enqueuedEvents, this._stageAccumulator);
+		var transitionDecision = currentTransition.eventEndsTransition(event, commit, this._enqueuedEvents, this._stageAccumulator, this._globalAccumulator);
 		if(transitionDecision){
 			transitionIntents.push(currentTransition);
 		}
@@ -78,10 +85,12 @@ Saga.prototype.processEvent = function processEvent(event, commit){
 			return when.reject(new TransitionConflictError('Transition conflict detected - will not proceed with state transition'));
 		}
 		var transition = transitionIntents[0];
-		return when(transition.performAction(event, commit, this._enqueuedEvents, this._stageAccumulator),
+		return when(transition.performAction(event, commit, this._enqueuedEvents, this._stageAccumulator, this._globalAccumulator, environment),
 		function _finalizeTransition(actionResult){
-			self._stageEvent(new Event(transition.transitionEventType, transition.eventPayloadGenerator(event, commit, self._enqueuedEvents, self._stageAccumulator, actionResult)));
-			self._stageEvent(new Event('TransitionCompleted', {transitionName: transition.name}));
+			if(transition.transitionEventType){
+				self._stageEvent(new Event(transition.transitionEventType, transition.eventPayloadGenerator(event, commit, self._enqueuedEvents, self._stageAccumulator, self._globalAccumulator, actionResult)));
+			}
+			self._stageEvent(new Event('TransitionCompleted', {transitionName: transition.name, event: event, commit: commit}));
 			return when.resolve(actionResult);
 		},
 		function _cancelTransition(reason){
@@ -97,11 +106,12 @@ Saga.prototype.processEvent = function processEvent(event, commit){
 
 Saga.prototype.onEventEnqueued = function onEventEnqueued(event, commit){
 	this._enqueuedEvents.push(event);
-	this._currentStage.handleEvent(event, commit, this._enqueuedEvents, this._stageAccumulator);
+	this._currentStage.handleEvent(event, commit, this._enqueuedEvents, this._stageAccumulator, this._globalAccumulator);
 };
 
 Saga.prototype.onTransitionCompleted = function onTransitionCompleted(event, commit){
 	var transitionName = event.eventPayload.transitionName;
+	this._currentStage.handleEvent(event.eventPayload.event, event.eventPayload.commit, this._enqueuedEvents, this._stageAccumulator, this._globalAccumulator);
 	this._currentStage = this._currentStage.transitions[transitionName].destination;
 	this._currentStagePath += '.' + transitionName;
 	this._enqueuedEvents = [];
@@ -113,7 +123,23 @@ Saga.prototype._getSnapshotData = function _getSnapshotData(){
 		stagePath: this._currentStagePath,
 		enqueuedEvents: this._enqueuedEvents,
 		stageAccumulator: this._stageAccumulator,
+		globalAccumulator: this._globalAccumulator,
 		seenEventIDs: Object.keys(this._seenEventIDs)
+	};
+};
+
+// Helper functions for Saga users.
+Saga.eventTypesSeen = function eventTypesSeen(requiredEventTypes){
+	function isContainedIn(containee, container){
+		return containee.every(function(element){
+			return container.indexOf(element) >= 0;
+		});
+	}
+	return function _eventTypesSeen(event, commit, queuedEvents){
+		var seenEventTypes = queuedEvents.concat(event).map(function(ev){
+			return ev.eventType;
+		});
+		return isContainedIn(requiredEventTypes, seenEventTypes);
 	};
 };
 
