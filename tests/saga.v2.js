@@ -15,8 +15,8 @@ var streamer = new esdf.test.DummyEventSinkStreamer(sink);
 var loader = esdf.utils.createAggregateLoader(sink);
 
 function OrderSaga(){
-	var initialStage = new SagaStage('init');
-	var completedStage = new SagaStage('completed');
+	var initialStage = new SagaStage('init', ['OrderIssued']);
+	var completedStage = new SagaStage('completed', []);
 	initialStage.addTransition((new SagaTransition('orderCompletion',
 	function _eventEndsTransition(event, commit, queuedEvents, accumulator){
 		return true;

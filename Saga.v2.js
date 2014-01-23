@@ -3,6 +3,20 @@ var Event = require('./Event').Event;
 var util = require('util');
 var when = require('when');
 
+// ### Error types ###
+function TransitionConflictError(){
+	this.message = 'Transition conflict detected - will not proceed with state transition';
+	this.name = 'TransitionConflictError';
+}
+util.inherits(TransitionConflictError, Error);
+
+function EventTypeNotAccepted(){
+	this.message = 'The saga does not accept this type of events at this stage - perhaps try processing at a later stage?';
+	this.name = 'EventTypeNotAccepted';
+}
+util.inherits(EventTypeNotAccepted, Error);
+
+// ### Helper types ###
 function SagaStage(name, acceptedEventTypes){
 	this.name = name;
 	this.transitions = {};
@@ -41,6 +55,8 @@ SagaTransition.prototype.setDestination = function setDestination(destination){
 	return this;
 };
 
+// ### Aggregate definition ###
+
 function Saga(){
 	
 }
@@ -63,7 +79,7 @@ Saga.prototype.processEvent = function processEvent(event, commit, environment){
 	if(this._seenEventIDs[event.eventID]){
 		return when.resolve();
 	}
-	if(this.currentStage.acceptedEventTypes.indexOf(event.eventType) < 0){
+	if(this._currentStage.acceptedEventTypes.indexOf(event.eventType) < 0){
 		return when.reject(new EventTypeNotAccepted('The saga does not accept this type of events at this stage - perhaps try processing at a later stage?'));
 	}
 	// Gather all transitions that are to occur. We use each transition's supplied decision function.
@@ -80,7 +96,8 @@ Saga.prototype.processEvent = function processEvent(event, commit, environment){
 		// There is at least one nominated transition.
 		// Check for conflicts.
 		if(transitionIntents.length > 1){
-			//TODO: define the event payload below in a better way.
+			//TODO: Define the event payload below in a better way.
+			//TODO: Reconsider whether it makes sense at all to stage events if we are likely not going to commit them (as the processing yields a promise rejection).
 			this._stageEvent('TransitionConflictDetected', {currentStage: this._currentStage.name, currentEventType: event.eventType});
 			return when.reject(new TransitionConflictError('Transition conflict detected - will not proceed with state transition'));
 		}
