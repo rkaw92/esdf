@@ -60,7 +60,7 @@ Commit.prototype.toString = function toString(){
  */
 Commit.reconstruct = function reconstruct(flattenedCommit){
 	//TODO: deep copy the event array and metadata.
-	return new Commit(flattenedCommit.events, flattenedCommit.sequenceID, flattenedCommit.sequenceSlot, flattenedCommit.metadata);
+	return new Commit(flattenedCommit.events, flattenedCommit.sequenceID, flattenedCommit.sequenceSlot, flattenedCommit.aggregateType, flattenedCommit.metadata);
 };
 
 /**
@@ -69,7 +69,7 @@ Commit.reconstruct = function reconstruct(flattenedCommit){
  * @returns {module:esdf/core/Commit~Commit} The recovered commit object.
  */
 Commit.fromString = function fromString(stringifiedCommit){
-	return reconstruct(JSON.parse(stringifiedCommit));
+	return Commit.reconstruct(JSON.parse(stringifiedCommit));
 };
 
 module.exports.Commit = Commit;
