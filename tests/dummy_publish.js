@@ -19,7 +19,7 @@ describe('DummyEventPublisher', function(){
 		var q1 = subscriber.queue('q1');
 		var q2 = subscriber.queue('q2');
 		q1.bind('DummyAggregateType.TestEventType');
-		q1.listen(function(event){
+		q1.listen(function(eventCommitObject){
 			testDone();
 		});
 		sink.sink(new Commit([
