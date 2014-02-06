@@ -200,6 +200,16 @@ EventSourcedAggregate.prototype.getNextSequenceNumber = function getNextSequence
 };
 
 /**
+ * Get an array of all staged events which are awaiting commit, in the same order they were staged.
+ * @method
+ * @public
+ * @returns {module:esdf/core/Event~Event[]}
+ */
+EventSourcedAggregate.prototype.getStagedEvents = function getStagedEvents(){
+	return this._stagedEvents;
+};
+
+/**
  * Apply the given commit to the aggregate, causing it to apply each event, individually, one after another.
  * @method
  * @public
