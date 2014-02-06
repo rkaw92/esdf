@@ -160,6 +160,28 @@ Saga.eventTypesSeen = function eventTypesSeen(requiredEventTypes){
 	};
 };
 
+/**
+ * Get the event routing keys that the saga type is interested in processing. All sagas should overload this static method if they are meant to receive any events.
+ * @static
+ * @abstract
+ * @returns {Array.string} The list of events that should be routed to instances of this saga class.
+ */
+Saga.getBinds = function getBinds(){
+	return [];
+};
+
+/**
+ * Get the saga aggregate ID to which the event should be routed.
+ * @static
+ * @abstract
+ * @param {module:esdf/core/Event~Event} event The event to be routed to a saga for processing.
+ * @param {module:esdf/core/Commit~Commit} commit The event's originating commit.
+ * @returns {?string} The aggregate ID, or null if this event should not be processed by any saga. In case undefined is returned, the event is not consumed from processing and is expected to be re-processed in the future (to avoid programmer errors and missing returns).
+ */
+Saga.route = function route(event, commit){
+	throw new Error('The routing function needs to be overloaded by child prototypes - refusing to act with the default routing');
+};
+
 module.exports.SagaStage = SagaStage;
 module.exports.SagaTransition = SagaTransition;
 module.exports.Saga = Saga;
