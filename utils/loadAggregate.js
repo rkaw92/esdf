@@ -3,6 +3,16 @@
  */
 
 var when = require('when');
+var util = require('util');
+
+/**
+ * 
+ */
+function AggregateLoaderSinkNotGivenError(){
+	this.name = 'AggregateLoaderSinkNotGivenError';
+	this.message = 'At least an EventSink needs to be passed to createAggregateLoader!';
+}
+util.inherits(AggregateLoaderSinkNotGivenError, Error);
 
 function NoOpSnapshotter(){
 	
@@ -93,8 +103,12 @@ function loadAggregate(ARConstructor, ARID, eventSink, snapshotter){
  * @param {module:esdf/interfaces/EventSinkInterface} eventSink  The event sink to be used by the generated loader function.
  * @param {module:esdf/interfaces/AggregateSnapshotterInterface} [snapshotter] The snapshotter to be used. If not passed, aggregate loading will occur using only the event sink.
  * @returns {module:esdf/utils/loadAggregate~loadAggregate}
+ * @throws {module:esdf/utils/loadAggregate~AggregateLoaderSinkNotGivenError} If an eventSink is not passed to the loader creation function.
  */
 function createAggregateLoader(eventSink, snapshotter){
+	if(!eventSink){
+		throw new AggregateLoaderSinkNotGivenError();
+	}
 	return function _boundAggregateLoader(ARConstructor, ARID){
 		return loadAggregate(ARConstructor, ARID, eventSink, snapshotter);
 	};
