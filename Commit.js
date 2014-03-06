@@ -39,7 +39,7 @@ Commit.prototype.getMetadata = function getMetadata(){
  */
 Commit.reconstruct = function reconstruct(flattenedCommit){
 	//TODO: reconstruct events, too!
-	return new Commit(flattenedCommit.events, flattenedCommit.sequenceID, flattenedCommit.sequenceSlot, flattenedCommit.metadata);
+	return new Commit(flattenedCommit.events, flattenedCommit.sequenceID, flattenedCommit.sequenceSlot, flattenedCommit.aggregateType, flattenedCommit.metadata);
 };
 
 module.exports.Commit = Commit;
