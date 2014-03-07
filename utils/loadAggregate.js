@@ -17,7 +17,7 @@ util.inherits(AggregateLoaderSinkNotGivenError, Error);
 function NoOpSnapshotter(){
 	
 }
-NoOpSnapshotter.prototype.loadSnapshot = function loadSnapshot(ARID){
+NoOpSnapshotter.prototype.loadSnapshot = function loadSnapshot(ARType, ARID){
 	return when.reject('Dummy no-op snapshotter - rejecting load promise. To use a real snapshotter, pass it to the loadAggregate function.');
 };
 NoOpSnapshotter.prototype.saveSnapshot = function saveSnapshot(snapshot){
@@ -38,6 +38,8 @@ NoOpSnapshotter.prototype.saveSnapshot = function saveSnapshot(snapshot){
 function loadAggregate(ARConstructor, ARID, eventSink, snapshotter){
 	// Initialize the promise we're going to return to the caller.
 	var loadDeferred = when.defer();
+	// Determine the aggregate type. The snapshot loader and/or the rehydrator (sink) may need this to find the data.
+	var aggregateType = ARConstructor.prototype._aggregateType;
 	// Initialize the AR we're going to be populating using the provided constructor function.
 	var ARObject;
 	function _constructAggregate(){
@@ -46,10 +48,10 @@ function loadAggregate(ARConstructor, ARID, eventSink, snapshotter){
 		ARObject.setEventSink(eventSink);
 		// If no snapshotter has been passed (or is not needed/used), instead of complicating logic, we simply replace it locally with a stub that knows no aggregates and rejects all loads.
 		//  This happens in _constructAggregate since it relies on the AR object existing.
-		if(!snapshotter || !ARObject.supportsSnapshots()){
+		if(!snapshotter || !ARObject.supportsSnapshotApplication()){
 			snapshotter = new NoOpSnapshotter();
 		}
-		ARObject._snapshotter = snapshotter;
+		ARObject.setSnapshotter(snapshotter);
 	}
 	_constructAggregate();
 	
@@ -64,7 +66,7 @@ function loadAggregate(ARConstructor, ARID, eventSink, snapshotter){
 		);
 	}
 	
-	when(snapshotter.loadSnapshot(ARID),
+	when(snapshotter.loadSnapshot(aggregateType, ARID),
 	function _snapshotLoaded(snapshot){
 		// A snapshot has been found and loaded, so let the AR apply it to itself, according to its internal logic.
 		try{
