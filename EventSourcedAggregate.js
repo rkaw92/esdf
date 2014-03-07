@@ -62,8 +62,7 @@ util.inherits(AggregateUsageError, Error);
 /**
  * Basic constructor for creating an in-memory object representation of an Aggregate. Aggregates are basic business objects in the domain and the primary source of events.
  * An aggregate should typically listen to its own events (define on\* event handlers) and react by issuing such state changes, since it is the only keeper of its own internal state.
- * You __are__ supposed to use this as a prototype for your own Aggregate constructors (preferably via Node's util.inherits).
- * 
+ * You __are__ supposed to extend this prototype (preferably via Node's util.inherits or equivalent, for example CoffeeScript's extends).
  * @constructor
  */
 function EventSourcedAggregate(){
@@ -201,6 +200,16 @@ EventSourcedAggregate.prototype.getNextSequenceNumber = function getNextSequence
 };
 
 /**
+ * Get an array of all staged events which are awaiting commit, in the same order they were staged.
+ * @method
+ * @public
+ * @returns {module:esdf/core/Event~Event[]}
+ */
+EventSourcedAggregate.prototype.getStagedEvents = function getStagedEvents(){
+	return this._stagedEvents;
+};
+
+/**
  * Apply the given commit to the aggregate, causing it to apply each event, individually, one after another.
  * @method
  * @public
@@ -227,14 +236,13 @@ EventSourcedAggregate.prototype.applyCommit = function applyCommit(commit){
  * @method
  * @private
  * @param {module:esdf/core/Event~Event} event The event to apply.
- * @param {module:esdf/core/Commit~Commit} commit The commit that the event is part of. Used for passing metadata to the handler.
  * @throws {module:esdf/core/EventSourcedAggregate~AggregateEventHandlerMissingError} if the handler for the passed event (based on event type) is missing.
  */
 //TODO: Document the "on*" handler function contract.
-EventSourcedAggregate.prototype._applyEvent = function _applyEvent(event, commit){
+EventSourcedAggregate.prototype._applyEvent = function _applyEvent(event){
 	var handlerFunctionName = 'on' + event.eventType;
 	if(typeof(this[handlerFunctionName]) === 'function'){
-		this[handlerFunctionName](event, commit);
+		this[handlerFunctionName](event);
 	}
 	else{
 		if(!this._allowMissingEventHandlers){
@@ -263,11 +271,13 @@ EventSourcedAggregate.prototype._updateSequenceNumber = function _updateSequence
  * @method
  * @public
  * @param {module:esdf/core/Event~Event} event The event to apply.
- * @param {module:esdf/core/Commit~Commit} commit The commit that the event is part of.
+ * @param {?module:esdf/core/Commit~Commit} commit The commit that the event is part of. If provided, the internal next slot number counter is increased to the commit's slot + 1.
  */
 EventSourcedAggregate.prototype.applyEvent = function applyEvent(event, commit){
-	this._applyEvent(event, commit);
-	this._updateSequenceNumber(commit.sequenceSlot);
+	this._applyEvent(event);
+	if(commit && typeof(commit.sequenceSlot) === 'number'){
+		this._updateSequenceNumber(commit.sequenceSlot);
+	}
 };
 
 /**
@@ -283,6 +293,8 @@ EventSourcedAggregate.prototype._stageEvent = function _stageEvent(event){
 	if(!this._stagedEvents){
 		this._stagedEvents = [];
 	}
+	// Enrich the event using the aggregate's specific enrichment function.
+	this._enrichEvent(event);
 	this._stagedEvents.push(event);
 	this._applyEvent(event);
 	return true;
@@ -433,6 +445,17 @@ EventSourcedAggregate.prototype._saveSnapshot = function _saveSnapshot(){
 	else{
 		return when.reject(new AggregateUsageError('An aggregate needs to implement _getSnapshotData in order to be able to save snapshots'));
 	}
+};
+
+/**
+ * Enrich staged events before emission. Modifies the event object passed to it. This is so that the programmer does not have to specify all data with every event construction - instead, some keys of the payload can be assigned via enriching.
+ * This method does nothing by default - it is up to individual aggregate implementations based on this prototype to override this function. Using a "switch" statement based on eventType is recommended.
+ * @method
+ * @protected
+ * @param {module:esdf/core/Event~Event} event The event to be enriched. New key-value pairs can be added to event.eventPayload.
+ */
+EventSourcedAggregate.prototype._enrichEvent = function _enrichEvent(event){
+	// Do nothing, unless this function is overloaded.
 };
 
 module.exports.EventSourcedAggregate = EventSourcedAggregate;

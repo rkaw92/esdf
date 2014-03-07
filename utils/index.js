@@ -8,6 +8,7 @@
  * @param label_value The label value. Can be any scalar value. Putting names of error-handling layers (catch, callback wrappers) here is usually a good idea.
  */
 
+module.exports.AggregateSnapshot = require('./AggregateSnapshot.js').AggregateSnapshot;
 module.exports.tryWith = require('./tryWith.js').tryWith;
 module.exports.loadAggregate = require('./loadAggregate.js').loadAggregate;
 module.exports.createAggregateLoader = require('./loadAggregate.js').createAggregateLoader;
@@ -15,3 +16,5 @@ module.exports.enrichError = require('./enrichError.js').enrichError;
 module.exports.hashTransform = require('./hashTransform.js').hashTransform;
 module.exports.PublishMultiplexer = require('./PublishMultiplexer').PublishMultiplexer;
 module.exports.Repository = require('./Repository').Repository;
+module.exports.deriveUUID = require('./deriveUUID').deriveUUID;
+module.exports.SnapshotStrategy = require('./SnapshotStrategy');

@@ -55,21 +55,12 @@ Commit.prototype.toString = function toString(){
  * Initialize and return a commit based on its "flattened" form (i.e. a plain Object with its methods and prototype information stripped).
  * @method
  * @static
- * @param {Object} flattenedCommit An object that has fields ['events', 'sequenceID', 'sequenceSlot', 'metadata'] and is not necessarily a Commit instance.
+ * @param {Object} flattenedCommit An object that has fields ['events', 'sequenceID', 'sequenceSlot', 'aggregateType', 'metadata'] and is not necessarily a Commit instance.
  * @returns {module:esdf/core/Commit~Commit} A Commit instance with the fields initialized by values from the passed object's fields.
  */
 Commit.reconstruct = function reconstruct(flattenedCommit){
 	//TODO: deep copy the event array and metadata.
 	return new Commit(flattenedCommit.events, flattenedCommit.sequenceID, flattenedCommit.sequenceSlot, flattenedCommit.aggregateType, flattenedCommit.metadata);
-};
-
-/**
- * Initialize and return a commit based on its string-encoded form, as obtained by calling toString on a Commit instance.
- * @param {string} stringifiedCommit The commit to be reconstructed after conversion to a string.
- * @returns {module:esdf/core/Commit~Commit} The recovered commit object.
- */
-Commit.fromString = function fromString(stringifiedCommit){
-	return Commit.reconstruct(JSON.parse(stringifiedCommit));
 };
 
 module.exports.Commit = Commit;
