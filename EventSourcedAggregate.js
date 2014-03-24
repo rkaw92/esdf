@@ -378,8 +378,8 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
 	if(this._stagedEvents.length === 0){
 		return emitDeferred.resolver.resolve();
 	}
-	// Construct the commit object...
-	var commitObject = new Commit(this._stagedEvents, this._aggregateID, this._nextSequenceNumber, this._aggregateType, metadata);
+	// Construct the commit object. We use slice() to make a point-in-time snapshot of the array's structure, so that further pushes/removals do not affect it.
+	var commitObject = new Commit(this._stagedEvents.slice(), this._aggregateID, this._nextSequenceNumber, this._aggregateType, metadata);
 	// ... and tell the sink to try saving it, reacting to the result:
 	when(self._eventSink.sink(commitObject),
 	function _commitSinkSucceeded(result){
@@ -395,7 +395,7 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
 		}
 		// Now that the commit has been saved, we proceed to save a snapshot if the snapshotting strategy tells us to (and we have a snapshot save provider).
 		//  Note that _snapshotStrategy is called with "this" set to the current aggregate, which makes it behave like a private method.
-		if(self.supportsSnapshotGeneration() && self._snapshotter && self._snapshotStrategy(commitObject)){
+		if(self.supportsSnapshotGeneration() && self._snapshotter && self._snapshotStrategy && self._snapshotStrategy(commitObject)){
 			self._saveSnapshot();
 			// Since saving a snapshot is never mandatory for correct operation of an event-sourced application, we do not have to react to errors.
 		}
