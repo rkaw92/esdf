@@ -21,6 +21,15 @@ function Event(eventType, eventPayload, eventID){
 }
 
 /**
+ * Encode the event into a string.
+ *  This uses JSON, similarly to Commit.
+ * @returns {string} The encoded form of the Event, suitable for recovery via static method Event.fromString.
+ */
+Event.prototype.toString = function toString(){
+	return JSON.stringify(this);
+};
+
+/**
  * Rebuild an event from its flattened object form (i.e. from an object that has been serialized and/or had its methods stripped).
  * @param {Object} flattenedEvent The object to reconstruct from. Will take its properties and construct a new Event based on them.
  * @returns {Event}

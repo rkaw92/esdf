@@ -6,10 +6,11 @@ var QueueRouter = require('../utils/QueueRouter.js').QueueRouter;
 
 // AMQP look-alike.
 
+//TODO: Documentation for this file.
 /**
  * Construct a new DummyEventBusPublisher. A dummy publisher emulates per-consumer queue semantics and wildcard routing, similar to how AMQP works.
  */
-//TODO: pass the routing key builder dynamically in the constructor, instead of static function definition
+//TODO: Pass the routing key builder dynamically in the constructor, instead of static function definition.
 function DummyEventBusPublisher(){
 	this._router = new QueueRouter();
 }
