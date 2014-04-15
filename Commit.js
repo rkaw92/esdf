@@ -43,6 +43,15 @@ Commit.prototype.getMetadata = function getMetadata(){
 };
 
 /**
+ * Obtain a shallow copy of the Commit object, without the events. Note that the metadata object is shared between the instances.
+ * @method
+ * @returns {module:esdf/core/Commit~Commit} A Commit object with the event array emptied.
+ */
+Commit.prototype.getBare = function getBare(){
+	return new Commit([], this.sequenceID, this.sequenceSlot, this.aggregateType, this.metadata)
+};
+
+/**
  * Convert a commit into a string form. Useful mainly when commits are saved or transmitted as strings, for example in simple key-value stores (Redis) or in string-based messaging systems (AMQP).
  *  This uses JSON for encoding the commit object - the format can be relied upon (if a specific implementation wishes to use, for example, ProtocolBuffers, then it should not use toString() and do the conversion on its own).
  * @returns {string} the commit encoded into a string, suitable for passing into the static {@link module:esdf/core/Commit~Commit.fromString} method.
