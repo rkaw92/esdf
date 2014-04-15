@@ -55,12 +55,12 @@ util.inherits(Order, EventSourcedAggregate);
 Order.prototype._aggregateType = 'Order';
 
 // Now, define some methods - this is the main mechanism through which behaviour is added to your domain.
-Order.prototype.addItem(productCode, quantity, unitPrice){
+Order.prototype.addItem = function addItem(productCode, quantity, unitPrice){
 	// Elements of domain logic: verify the command, accept or decline to actually add an item.
 	if(quantity <= 0){
 		
 	}
-}
+};
 ```
 
 
