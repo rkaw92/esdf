@@ -1,4 +1,5 @@
 var saga = require('./Saga.v2.js');
+var logicSaga = require('./LogicSaga.js');
 
 module.exports.core = {
 	EventSourcedAggregate: require('./EventSourcedAggregate.js').EventSourcedAggregate,
@@ -6,7 +7,9 @@ module.exports.core = {
 	Commit: require('./Commit.js').Commit,
 	Saga: saga.Saga,
 	SagaStage: saga.SagaStage,
-	SagaTransition: saga.SagaTransition
+	SagaTransition: saga.SagaTransition,
+	LogicSaga: logicSaga.LogicSaga,
+	Timer: require('./Timer.js').Timer
 };
 
 module.exports.utils = require('./utils');
