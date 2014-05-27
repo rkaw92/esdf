@@ -16,6 +16,7 @@ function Timer(){
 	this._created = false;
 	this._fired = false;
 	this._fireAt = null;
+	this._applicationIdentifier = '';
 	this._timerMetadata = {};
 }
 util.inherits(Timer, EventSourcedAggregate);
@@ -25,17 +26,19 @@ Timer.prototype.onTimerCreated = function onTimerCreated(event){
 	this._created = true;
 	this._fireAt = new Date(event.eventPayload.fireAt);
 	this._timerMetadata = event.eventPayload.timerMetadata;
+	this._applicationIdentifier = event.eventPayload.applicationIdentifier;
 };
 
 Timer.prototype.onTimerFired = function onTimerFired(event){
 	this._fired = true;
 };
 
-Timer.prototype.create = function create(fireAt, timerMetadata){
+Timer.prototype.create = function create(applicationIdentifier, fireAt, timerMetadata){
 	if(this._created){
 		return;
 	}
 	this._stageEvent(new Event('TimerCreated', {
+		applicationIdentifier: applicationIdentifier,
 		fireAt: new Date(fireAt),
 		timerMetadata: timerMetadata || {}
 	}));
@@ -51,6 +54,7 @@ Timer.prototype.fire = function fire(){
 Timer.prototype._enrichEvent = function _enrichEvent(event){
 	if(event.eventType === 'TimerFired'){
 		event.eventPayload.timerMetadata = this._timerMetadata;
+		event.eventPayload.applicationIdentifier = this._applicationIdentifier;
 	}
 };
 
