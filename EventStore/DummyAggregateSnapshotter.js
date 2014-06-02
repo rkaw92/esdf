@@ -23,9 +23,7 @@ DummyAggregateSnapshotter.prototype.saveSnapshot = function saveSnapshot(aggrega
 			return reject(new Error('Object passed for saving is not a valid aggregate snapshot. Dump: ' + util.inspect(aggregateSnapshot)));
 		}
 		this._snapshots[aggregateKey] = aggregateSnapshot;
-		setImmediate(function(){
-			resolve();
-		});
+		resolve();
 	}).bind(this));
 	
 };
