@@ -26,6 +26,9 @@ NoOpSnapshotter.prototype.saveSnapshot = function saveSnapshot(snapshot){
 	return when.reject('Dummy no-op snapshotter - rejecting save promise. To use a real snapshotter, pass it to the loadAggregate function.');
 };
 
+//TODO: Kill "cachers" with fire! They introduce complexity which is unwarranted, as we already have snapshotters that are more than fitting for the job.
+// They can also cause infinite loops if a reload becomes necessary.
+// If extremely low snapshot latencies are required (i.e. in-process caching), snapshotter composition should be used (snapshotter "tiers" layered behind a facade).
 function NoOpCacher(){
 	
 }
@@ -50,18 +53,16 @@ NoOpCacher.prototype.cacheAggregateInstance = function cacheAggregateInstance(in
  */
 //TODO: Insert instrumentation probes to indicate when a snapshotter is not used (attempted) at all, to aid performance troubleshooting.
 function loadAggregate(ARConstructor, ARID, eventSink, snapshotter, cacher){
-	// Initialize the promise we're going to return to the caller.
-	var loadDeferred = when.defer();
 	// Determine the aggregate type. The snapshot loader and/or the rehydrator (sink) may need this to find the data.
 	var aggregateType = ARConstructor.prototype._aggregateType;
 	// Function definitions for later use in loadAggregate:
 	// Aggregate construction.
-	function _constructAggregate(){
+	function constructAggregate(){
 		var ARObject = new ARConstructor();
 		ARObject.setAggregateID(ARID);
 		ARObject.setEventSink(eventSink);
 		// If no snapshotter has been passed (or is not needed/used), instead of complicating logic, we simply replace it locally with a stub that knows no aggregates and rejects all loads.
-		//  This happens in _constructAggregate since it relies on the AR object existing.
+		//  This happens in constructAggregate since it relies on the AR object existing.
 		if(!snapshotter || !ARObject.supportsSnapshotApplication()){
 			snapshotter = new NoOpSnapshotter();
 		}
@@ -72,78 +73,42 @@ function loadAggregate(ARConstructor, ARID, eventSink, snapshotter, cacher){
 	var cacheProvider = cacher || new NoOpCacher();
 	
 	// Rehydration. It will resolve the top-level promise for us, so that there is no need to call anything else to finish the loading.
-	//TODO: Refactor so that it is self-contained and does not touch the top level.
-	function _rehydrateAggregate(ARObject, sinceCommit){
-		return eventSink.rehydrate(ARObject, ARID, sinceCommit);
+	function rehydrateAggregate(ARObject){
+		return when.try(eventSink.rehydrate.bind(eventSink), ARObject, ARID, ARObject.getNextSequenceNumber());
 	}
 	
 	// Nominal loading function - in case the aggregate is not in the aggregate cache:
-	function _nominalLoad(){
-		var nominalLoadDeferred = when.defer();
+	function nominalLoad(){
 		// Actual retrieval/construction/rehydration:
-		var ARObject = _constructAggregate();
-		when(snapshotter.loadSnapshot(aggregateType, ARID),
-		function _snapshotLoaded(snapshot){
+		var ARObject = constructAggregate();
+		return when.try(snapshotter.loadSnapshot.bind(snapshotter), aggregateType, ARID).then(function _applySnapshot(snapshot){
 			// A snapshot has been found and loaded, so let the AR apply it to itself, according to its internal logic.
-			try{
-				when(ARObject.applySnapshot(snapshot),
-				function _snapshotApplied(){
-					// The object is already partially rehydrated, so we need to skip some events when starting rehydration.
-					_rehydrateAggregate(ARObject, ARObject.getNextSequenceNumber()).then(function(){
-						nominalLoadDeferred.resolver.resolve(ARObject);
-					});
-				},
-				function _snapshotNotApplied(){
-					// Snapshot application failed - we should now rehydrate from the start, using all commits since the first one.
-					//  Thus, we construct the object anew to avoid operating on unclean state.
-					ARObject = _constructAggregate();
-					_rehydrateAggregate(ARObject, 1).then(function(){
-						nominalLoadDeferred.resolver.resolve(ARObject);
-					});
-				},
-				nominalLoadDeferred.resolver.notify
-				);
-			}
-			catch(e){
-				// Snapshot not applied - same as above.
-				ARObject = _constructAggregate();
-				_rehydrateAggregate(ARObject, 1).then(function(){
-					nominalLoadDeferred.resolver.resolve(ARObject);
-				});
-			}
-		},
-		function _snapshotNotLoaded(){
-			// We could not load a snapshot, so apply all events instead.
-			_rehydrateAggregate(ARObject, 1).then(function(){
-				nominalLoadDeferred.resolver.resolve(ARObject);
-			});
-		},
-		nominalLoadDeferred.resolver.notify);
-		return nominalLoadDeferred.promise;
+			return when.try(ARObject.applySnapshot.bind(ARObject), snapshot);
+		}, function _snapshotNonexistent(){
+			// This function intentionally does nothing. It simply turns a rejection from loadSnapshot() into a resolution.
+		}).then(rehydrateAggregate.bind(undefined, ARObject)).then(function(){
+			return ARObject;
+		});
 	}
 	
 	// If the aggregate instance is in the cache, we can use a much simpler procedure.
-	function _cacheLoad(){
+	function cacheLoad(){
 		return cacheProvider.getAggregateInstance(aggregateType, ARID);
 	}
 	
 	// Finally, put the defined procedures to action:
-	var instance = _cacheLoad();
+	var instance = cacheLoad();
 	if(instance){
 		// We've got what we came for: a ready instance.
-		loadDeferred.resolver.resolve(instance);
+		return when.resolve(instance);
 	}
 	else{
-		_nominalLoad().then(function(loadedAggregate){
+		return nominalLoad().then(function(loadedAggregate){
 			// Now that the aggregate has been (tediously) loaded from our store, ask the cacher to cache it for further use.
 			cacheProvider.cacheAggregateInstance(loadedAggregate);
-			loadDeferred.resolver.resolve(loadedAggregate);
-		}, function(loadingError){
-			loadDeferred.resolver.reject(loadingError);
+			return loadedAggregate;
 		});
 	}
-	
-	return loadDeferred.promise;
 }
 
 //TODO: Document the "cacher" argument.

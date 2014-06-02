@@ -53,32 +53,33 @@ function DummyEventSink(){
  * @returns {external:Promise} A Promise/A compliant object. Resolves when the commit sink is complete, rejects if there is a concurrency exception or any other type of error.
  */
 DummyEventSink.prototype.sink = function sink(commit){
-	var r = when.defer().resolver;
-	var sinkError = new Error('DummyEventSink.sink:reject');
-	sinkError.type = this._failureType;
-	if(this._wantSinkSuccess){
-		var self = this;
-		// Case 1: No commits in this sequence yet.
-		if(typeof(this._streams[commit.sequenceID]) === 'undefined'){
-			this._streams[commit.sequenceID] = [commit];
-		}
-		else{
-			// Case 2: Some commits already in this sequence, but no slot number conflict.
-			if(this._streams[commit.sequenceID].length < commit.sequenceSlot){
-				this._streams[commit.sequenceID].push(commit);
+	return when.promise((function(resolve, reject){
+		var sinkError = new Error('DummyEventSink.sink:reject');
+		sinkError.type = this._failureType;
+		if(this._wantSinkSuccess){
+			var self = this;
+			// Case 1: No commits in this sequence yet.
+			if(typeof(this._streams[commit.sequenceID]) === 'undefined'){
+				this._streams[commit.sequenceID] = [commit];
 			}
 			else{
-				// Case 3: Slot number conflict.
-				return r.reject(new Error('DummyEventSink.sink:OptimisticConcurrencyException(' + commit.sequenceSlot + ',' + this._streams[commit.sequenceID].length + ')'));
+				// Case 2: Some commits already in this sequence, but no slot number conflict.
+				if(this._streams[commit.sequenceID].length < commit.sequenceSlot){
+					this._streams[commit.sequenceID].push(commit);
+				}
+				else{
+					// Case 3: Slot number conflict.
+					return reject(new Error('DummyEventSink.sink:OptimisticConcurrencyException(' + commit.sequenceSlot + ',' + this._streams[commit.sequenceID].length + ')'));
+				}
 			}
+			// Dispatch the event to the dummy queue.
+			this.dispatchQueue.push(commit);
+			return resolve(true);
 		}
-		// Dispatch the event to the dummy queue.
-		this.dispatchQueue.push(commit);
-		return r.resolve(true);
-	}
-	else{
-		return r.reject(sinkError);
-	}
+		else{
+			return reject(sinkError);
+		}
+	}).bind(this));
 };
 
 /**
@@ -89,31 +90,31 @@ DummyEventSink.prototype.sink = function sink(commit){
  * @param {number} since The commit slot number to start the rehydration from (inclusive). Mainly used when the aggregate already has had some state applied, for example after loading a snapshot.
  */
 DummyEventSink.prototype.rehydrate = function rehydrate(object, sequenceID, since){
-	var rehydrationDeferred = when.defer();
-	var rehydrateError = new Error('DummyEventSink.rehydrate:RehydrationEventRetrievalDummyFailure');
-	var sinceCommit = (typeof(since) === 'number') ? Math.floor(since) : 1;
-	if(sinceCommit < 1){
-		return rehydrationDeferred.resolver.reject(new Error('DummyEventSink.rehydrate:Can not start applying commits from commit slot number lesser than 1!'));
-	}
-	rehydrateError.type = this._failureType;
-	if(this._wantRehydrateSuccess){
-		if(Array.isArray(this._streams[sequenceID])){
-			for(var commit_idx = sinceCommit - 1; commit_idx < this._streams[sequenceID].length; ++commit_idx){
-				var streamedCommit = this._streams[sequenceID][commit_idx];
-				try{
-					object.applyCommit(streamedCommit);
-				}
-				catch(err){
-					return rehydrationDeferred.resolver.reject(err);
-				}
-				rehydrationDeferred.resolver.notify('DummyEventSink.rehydrate:progress');
-			}
+	return when.promise((function(resolve, reject){
+		var rehydrateError = new Error('DummyEventSink.rehydrate:RehydrationEventRetrievalDummyFailure');
+		var sinceCommit = (typeof(since) === 'number') ? Math.floor(since) : 1;
+		if(sinceCommit < 1){
+			return reject(new Error('DummyEventSink.rehydrate:Can not start applying commits from commit slot number lesser than 1!'));
 		}
-		return rehydrationDeferred.resolver.resolve('DummyEventSink.rehydrate:resolve');
-	}
-	else{
-		return rehydrationDeferred.resolver.reject(rehydrateError);
-	}
+		rehydrateError.type = this._failureType;
+		if(this._wantRehydrateSuccess){
+			if(Array.isArray(this._streams[sequenceID])){
+				for(var commit_idx = sinceCommit - 1; commit_idx < this._streams[sequenceID].length; ++commit_idx){
+					var streamedCommit = this._streams[sequenceID][commit_idx];
+					try{
+						object.applyCommit(streamedCommit);
+					}
+					catch(err){
+						return reject(err);
+					}
+				}
+			}
+			return resolve('DummyEventSink.rehydrate:resolve');
+		}
+		else{
+			return reject(rehydrateError);
+		}
+	}).bind(this));
 };
 
 module.exports.DummyEventSink = DummyEventSink;
