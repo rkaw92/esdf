@@ -75,7 +75,7 @@ QueueProcessor.prototype._process = function _process(processorFunction){
 		var processError = (function(error){
 			this._processError(currentWorkItem, error, continueProcessing);
 		}).bind(this);
-		when(this._processorFunction(currentWorkItem), continueProcessing, processError);
+		when(this._processorFunction(currentWorkItem)).then(continueProcessing, processError);
 	}).bind(this));
 	return true;
 };
@@ -143,7 +143,7 @@ QueueProcessor.prototype.pause = function pause(){
 	}
 	else{
 		// We are already stopped (not processing anything), so we may as well return an already-resolved promise.
-		return when.defer().resolver.resolve();
+		return when.resolve();
 	}
 };
 
