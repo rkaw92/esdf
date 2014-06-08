@@ -111,7 +111,52 @@ describe('EventSourcedAggregate', function(){
 			util.inherits(PickyAggregate, EventSourcedAggregate);
 			var picky = new PickyAggregate();
 			picky.applyCommit(new Commit([], 'picky', 1, 'PickyAggregate'));
+			//TODO: Finish this test case. Use assert.
 		});
 		//TODO: corner cases (aggregateType mismatch etc.)
+		it('should properly constrain visibility of commit events within event handlers', function(){
+			function CommitDependentAggregate(){
+				this._aggregateType = 'CommitDependentAggregate';
+				this.ok = false;
+			}
+			util.inherits(CommitDependentAggregate, EventSourcedAggregate);
+			// Note: this test case tests whether onPresentEvent sees PastEvent and does not see FutureEvent.
+			CommitDependentAggregate.prototype.work = function work(){
+				this._stageEvent(new Event('PastEvent', {}));
+				this._stageEvent(new Event('PresentEvent', {}));
+				this._stageEvent(new Event('FutureEvent', {}));
+			};
+			CommitDependentAggregate.prototype.onPastEvent = function(){};
+			CommitDependentAggregate.prototype.onPresentEvent = function onPresentEvent(event, commit){
+				var hasPastEvent = (commit.getEvents().some(function(inspectedEvent){
+					return (inspectedEvent.eventType === 'PastEvent');
+				}));
+				var hasFutureEvent = (commit.getEvents().some(function(suspectedEvent){
+					return (suspectedEvent.eventType === 'FutureEvent');
+				}));
+				// Only OK if we've seen PastEvent, but not FutureEvent.
+				if(hasPastEvent && !hasFutureEvent){
+					this.ok = true;
+				}
+			};
+			CommitDependentAggregate.prototype.onFutureEvent = function(){};
+			
+			// Test 1: First run (non-rehydration).
+			var dependent = new CommitDependentAggregate();
+			dependent.setCurrentCommit(new Commit([], 'DEPENDENT-1', 1, 'CommitDependentAggregate', {}));
+			dependent.work();
+			assert(dependent.ok);
+			
+			// Test 2: During rehydration (applyCommit supposedly called by an EventSink).
+			dependent = new CommitDependentAggregate();
+			var currentCommit = new Commit([], 'DEPENDENT-1', 2, 'CommitDependentAggregate', {});
+			dependent.setCurrentCommit(currentCommit); // This is extraneous, just seeing if it doesn't break anything by interfering with commit application.
+			dependent.applyCommit(new Commit([
+				new Event('PastEvent', {}),
+				new Event('PresentEvent', {}),
+				new Event('FutureEvent', {})
+			], 'DEPENDENT-1', 1, 'CommitDependentAggregate', {}));
+			assert(dependent.ok);
+		});
 	});
 });

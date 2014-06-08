@@ -126,6 +126,13 @@ function EventSourcedAggregate(){
 	 * @type {external:EventEmitter}
 	 */
 	this._IOObserver = null;
+	/**
+	 * The commit to be passed to event handlers during the first (non-rehydration) run of event handlers. This is a "context" object, assigned from the outside (possibly during loading).
+	 *  Note that, during rehydration (that is when, using applyCommit, not _stageEvent), the "current commit" is ignored and the previously-stored commit taking part in the rehydration is used instead.
+	 * @private
+	 * @type {module:esdf/core/Commit~Commit}
+	 */
+	this._currentCommit = null;
 }
 
 /**
@@ -190,6 +197,32 @@ EventSourcedAggregate.prototype.getSnapshotter = function getSnapshotter(){
 };
 
 /**
+ * Set the commit to be passed to the aggregate's event handlers when calling _stageEvent. Does not apply to rehydration - during event replay, the commit passed is always the commit the event had been saved in.
+ * This method makes it possible to provide a "context" to event handlers without cluttering methods' signatures. For example, the passed commit's metadata might contain user/group information for auditing.
+ * Note that the presence of particular data within a commit relies on the caller of tryWith (or equivalent) to call setCurrentCommit and pass the necessary information. Thus, event handlers should only rely
+ *  on the commit's metadata when the service layer (or the layer responsible for initiating the loading of aggregates) is trusted to pass it in every case.
+ * @method
+ * @public
+ * @param {module:esdf/core/Commit~Commit} commit The commit to set as current "context".
+ * 
+ */
+EventSourcedAggregate.prototype.setCurrentCommit = function setCurrentCommit(commit){
+	this._currentCommit = commit;
+};
+
+/**
+ * Get the commit set previusly by setCurrentCommit. This can be used by aggregate methods to obtain information passed along with the commit,
+ *  such as the metadata and the current sequence number (the latter of which is also available via getNextSequenceNumber()).
+ * Note that the preferred means of passing information to event handlers is, invariably, via event payloads, in turn coming from method arguments.
+ * @method
+ * @public
+ * @returns {?module:esdf/core/Commit~Commit}
+ */
+EventSourcedAggregate.prototype.getCurrentCommit = function getCurrentCommit(commit){
+	return this._currentCommit;
+};
+
+/**
  * Get the sequence number that will be used when saving the next commit. For a cleanly-initialized aggregate, this equals 1.
  * @method
  * @public
@@ -223,9 +256,11 @@ EventSourcedAggregate.prototype.applyCommit = function applyCommit(commit){
 	if(this._aggregateType !== commit.aggregateType){
 		throw new AggregateTypeMismatch(this._aggregateType, commit.aggregateType);
 	}
-	commit.events.forEach(function(event){
-		// The handler only gets the event and the commit metadata. It is not guaranteed to have access to other commit members.
-		self._applyEvent(event, commit);
+	commit.events.forEach(function(event, eventIndex){
+		// For each of the events, the handler is called with a cut-down version of the commit. The commit's visible events are constrained to the ones that precede the processed event.
+		//TODO: Turn direct property references into getter calls. This obviously requires adding getter methods to Commit.
+		var visibleCommit = new Commit(commit.getEvents().slice(0, eventIndex), commit.sequenceID, commit.sequenceSlot, commit.aggregateType, commit.getMetadata());
+		self._applyEvent(event, visibleCommit);
 	});
 	// Increment our internal sequence number counter.
 	this._updateSequenceNumber(commit.sequenceSlot);
@@ -236,13 +271,14 @@ EventSourcedAggregate.prototype.applyCommit = function applyCommit(commit){
  * @method
  * @private
  * @param {module:esdf/core/Event~Event} event The event to apply.
+ * @param {module:esdf/core/Commit~Commit} commit The commit to which the applied event belongs. Note that, during the first run, the commit is not yet persisted into the DB - that is, it will only contain the events that had been staged before entering the event handler. During rehydration, this behavior is emulated (only the events prior to the one passed to the handler are present in the commit) to ensure that the handlers behave the same on the first run (before persisting/loading) as on subsequent ones (when rehydrated).
  * @throws {module:esdf/core/EventSourcedAggregate~AggregateEventHandlerMissingError} if the handler for the passed event (based on event type) is missing.
  */
 //TODO: Document the "on*" handler function contract.
-EventSourcedAggregate.prototype._applyEvent = function _applyEvent(event){
+EventSourcedAggregate.prototype._applyEvent = function _applyEvent(event, commit){
 	var handlerFunctionName = 'on' + event.eventType;
 	if(typeof(this[handlerFunctionName]) === 'function'){
-		this[handlerFunctionName](event);
+		this[handlerFunctionName](event, commit);
 	}
 	else{
 		if(!this._allowMissingEventHandlers){
@@ -274,15 +310,17 @@ EventSourcedAggregate.prototype._updateSequenceNumber = function _updateSequence
  * @param {?module:esdf/core/Commit~Commit} commit The commit that the event is part of. If provided, the internal next slot number counter is increased to the commit's slot + 1.
  */
 EventSourcedAggregate.prototype.applyEvent = function applyEvent(event, commit){
-	this._applyEvent(event);
+	//TODO: Implement limited event visibility in the commit via .slice(), similarly to how applyCommit works. Try indexOf().
+	// For now, this function sees limited usage, so this is postponed.
+	this._applyEvent(event, commit);
 	if(commit && typeof(commit.sequenceSlot) === 'number'){
 		this._updateSequenceNumber(commit.sequenceSlot);
 	}
 };
 
 /**
- * Stage an event for committing later. Immediately applies the event to the Aggregate (via the built-in EventEmitter), so rolling back is not possible
- *  (reloading the Aggregate from the Event Sink and retrying can be used instead, see utils.tryWith).
+ * Stage an event for committing later. Immediately applies the event to the Aggregate, so rolling back is not possible
+ *  (reloading the Aggregate from the Event Sink and retrying can be used instead, see utils.tryWith or the higher-level utils.Repository interface).
  * @method
  * @private
  * @param {module:esdf/core/Event~Event} event The event to be enqueued for committing later.
@@ -294,9 +332,16 @@ EventSourcedAggregate.prototype._stageEvent = function _stageEvent(event){
 		this._stagedEvents = [];
 	}
 	// Enrich the event using the aggregate's specific enrichment function.
-	this._enrichEvent(event);
+	var currentCommit = this._currentCommit;
+	this._enrichEvent(event, currentCommit);
 	this._stagedEvents.push(event);
-	this._applyEvent(event);
+	// Note: in the line below, it is assumed that currentCommit already contains all events staged previously.
+	this._applyEvent(event, currentCommit);
+	// Add the event just applied to the current commit.
+	if(currentCommit){
+		//TODO: Use an event-adding Commit method once one becomes available.
+		currentCommit.events.push(event);
+	}
 	return true;
 };
 
