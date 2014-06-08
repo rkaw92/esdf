@@ -51,17 +51,24 @@ ServiceContainer.prototype.addResource = function addResource(resourceName, reso
  * @returns {function} The requested service with the first argument bound to a key-value map of provided dependencies.
  */
 ServiceContainer.prototype._getBoundService = function _getBoundService(providedResources, generatorFunction, serviceName){
+	var activeResources = {};
+	for(var resourceName in this._resources){
+		activeResources[resourceName] = this._resources[resourceName];
+	}
+	for(var resourceName in providedResources){
+		activeResources[resourceName] = providedResources[resourceName];
+	}
 	if(typeof(this._serviceFunctions[serviceName]) === 'function'){
 		if(typeof(generatorFunction) === 'function'){
 			// If dynamic resource generation is required, we call the generator and overwrite the static resources with it.
 			var generatedResources = generatorFunction();
 			for(var k in generatedResources){
 				if(Object.prototype.hasOwnProperty.call(generatedResources, k)){
-					providedResources[k] = generatedResources[k];
+					activeResources[k] = generatedResources[k];
 				}
 			}
 		}
-		return this._serviceFunctions[serviceName].bind(undefined, providedResources);
+		return this._serviceFunctions[serviceName].bind(undefined, activeResources);
 	}
 	else{
 		throw new Error('Service does not exist: ' + serviceName);
@@ -85,21 +92,12 @@ ServiceContainer.prototype.service = function service(serviceName){
  * @returns {function} A function which accepts the service name as the sole argument and returns the bound service function with the run-time dependencies set as the first argument.
  */
 ServiceContainer.prototype.createServiceGetter = function createServiceGetter(contextResources){
-	var completeResourcesObject = {};
-	// The context's resources shall contain our original resources...
-	for(var staticResourceName in this._resources){
-		completeResourcesObject[staticResourceName] = this._resources[staticResourceName];
-	}
 	if(typeof(contextResources) === 'object'){
-		// ... as well as the resources passed into this function.
-		for(var dynamicResourceName in contextResources){
-			completeResourcesObject[dynamicResourceName] = contextResources[dynamicResourceName];
-		}
-		return this._getBoundService.bind(this, completeResourcesObject, null);
+		return this._getBoundService.bind(this, contextResources, null);
 	}
 	else if(typeof(contextResources) === 'function'){
 		// In case the resources were a dynamic generator, the generator is passed for further execution to the generated service getter.
-		return this._getBoundService.bind(this, completeResourcesObject, contextResources);
+		return this._getBoundService.bind(this, {}, contextResources);
 	}
 	else{
 		throw new Error('Context resources need to be either a ready-to-use object or an object-generating function');

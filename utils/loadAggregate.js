@@ -2,6 +2,8 @@
  * @module esdf/utils/loadAggregate
  */
 
+//TODO: Documentation.
+
 var when = require('when');
 var util = require('util');
 
@@ -24,6 +26,21 @@ NoOpSnapshotter.prototype.saveSnapshot = function saveSnapshot(snapshot){
 	return when.reject('Dummy no-op snapshotter - rejecting save promise. To use a real snapshotter, pass it to the loadAggregate function.');
 };
 
+//TODO: Kill "cachers" with fire! They introduce complexity which is unwarranted, as we already have snapshotters that are more than fitting for the job.
+// They can also cause infinite loops if a reload becomes necessary.
+// If extremely low snapshot latencies are required (i.e. in-process caching), snapshotter composition should be used (snapshotter "tiers" layered behind a facade).
+function NoOpCacher(){
+	
+}
+NoOpCacher.prototype.getAggregateInstance = function getAggregateInstance(ARType, ARID){
+	// We're a no-op - return undefined so that the caller knows we do not have the instance cached.
+	return;
+};
+NoOpCacher.prototype.cacheAggregateInstance = function cacheAggregateInstance(instance){
+	// Do nothing - we do not store anything in memory.
+	return;
+};
+
 /**
  * Load an EventSourcedAggregate using an EventSink, assisted by a Snapshotter for increased performance (optional). This operation performs rehydration under the hood - if a snapshot is found, rehydration is done since that snapshot.
  *  Note that loading an empty Aggregate, that is, one that has zero commits, is a valid operation by design. In such case, the AR returned will be in its initial state, right after its constructor is called.
@@ -35,70 +52,66 @@ NoOpSnapshotter.prototype.saveSnapshot = function saveSnapshot(snapshot){
  * @returns {external:Promise} a promise that resolves with the Aggregate as resolution value if loading succeeded, and rejects with a passed-through error if failed. If snapshot loading fails, the aggregate is rehydrated from events and the loading can still succeed.
  */
 //TODO: Insert instrumentation probes to indicate when a snapshotter is not used (attempted) at all, to aid performance troubleshooting.
-function loadAggregate(ARConstructor, ARID, eventSink, snapshotter){
-	// Initialize the promise we're going to return to the caller.
-	var loadDeferred = when.defer();
+function loadAggregate(ARConstructor, ARID, eventSink, snapshotter, cacher){
 	// Determine the aggregate type. The snapshot loader and/or the rehydrator (sink) may need this to find the data.
 	var aggregateType = ARConstructor.prototype._aggregateType;
-	// Initialize the AR we're going to be populating using the provided constructor function.
-	var ARObject;
-	function _constructAggregate(){
-		ARObject = new ARConstructor();
+	// Function definitions for later use in loadAggregate:
+	// Aggregate construction.
+	function constructAggregate(){
+		var ARObject = new ARConstructor();
 		ARObject.setAggregateID(ARID);
 		ARObject.setEventSink(eventSink);
 		// If no snapshotter has been passed (or is not needed/used), instead of complicating logic, we simply replace it locally with a stub that knows no aggregates and rejects all loads.
-		//  This happens in _constructAggregate since it relies on the AR object existing.
+		//  This happens in constructAggregate since it relies on the AR object existing.
 		if(!snapshotter || !ARObject.supportsSnapshotApplication()){
 			snapshotter = new NoOpSnapshotter();
 		}
 		ARObject.setSnapshotter(snapshotter);
-	}
-	_constructAggregate();
-	
-	// Define the rehydration function. It will resolve the top-level promise for us, so that there is no need to call anything else to finish the loading.
-	function _rehydrateAggregate(sinceCommit){
-		when(eventSink.rehydrate(ARObject, ARID, sinceCommit),
-				function _aggregateRehydrated(){
-					loadDeferred.resolver.resolve(ARObject);
-				},
-				loadDeferred.resolver.reject,
-				loadDeferred.resolver.notify
-		);
+		return ARObject;
 	}
 	
-	when(snapshotter.loadSnapshot(aggregateType, ARID),
-	function _snapshotLoaded(snapshot){
-		// A snapshot has been found and loaded, so let the AR apply it to itself, according to its internal logic.
-		try{
-			when(ARObject.applySnapshot(snapshot),
-			function _snapshotApplied(){
-				// The object is already partially rehydrated, so we need to skip some events when starting rehydration.
-				_rehydrateAggregate(ARObject.getNextSequenceNumber());
-			},
-			function _snapshotNotApplied(){
-				// Snapshot application failed - we should now rehydrate from the start, using all commits since the first one.
-				//  Thus, we construct the object anew to avoid operating on unclean state.
-				_constructAggregate();
-				_rehydrateAggregate(1);
-			},
-			loadDeferred.resolver.notify
-			);
-		}
-		catch(e){
-			// Snapshot not applied - same as above.
-			_constructAggregate();
-			_rehydrateAggregate(1);
-		}
-	},
-	function _snapshotNotLoaded(){
-		// We could not load a snapshot, so apply all events instead.
-		_rehydrateAggregate(1);
-	},
-	loadDeferred.resolver.notify);
+	var cacheProvider = cacher || new NoOpCacher();
 	
-	return loadDeferred.promise;
+	// Rehydration. It will resolve the top-level promise for us, so that there is no need to call anything else to finish the loading.
+	function rehydrateAggregate(ARObject){
+		return when.try(eventSink.rehydrate.bind(eventSink), ARObject, ARID, ARObject.getNextSequenceNumber());
+	}
+	
+	// Nominal loading function - in case the aggregate is not in the aggregate cache:
+	function nominalLoad(){
+		// Actual retrieval/construction/rehydration:
+		var ARObject = constructAggregate();
+		return when.try(snapshotter.loadSnapshot.bind(snapshotter), aggregateType, ARID).then(function _applySnapshot(snapshot){
+			// A snapshot has been found and loaded, so let the AR apply it to itself, according to its internal logic.
+			return when.try(ARObject.applySnapshot.bind(ARObject), snapshot);
+		}, function _snapshotNonexistent(){
+			// This function intentionally does nothing. It simply turns a rejection from loadSnapshot() into a resolution.
+		}).then(rehydrateAggregate.bind(undefined, ARObject)).then(function(){
+			return ARObject;
+		});
+	}
+	
+	// If the aggregate instance is in the cache, we can use a much simpler procedure.
+	function cacheLoad(){
+		return cacheProvider.getAggregateInstance(aggregateType, ARID);
+	}
+	
+	// Finally, put the defined procedures to action:
+	var instance = cacheLoad();
+	if(instance){
+		// We've got what we came for: a ready instance.
+		return when.resolve(instance);
+	}
+	else{
+		return nominalLoad().then(function(loadedAggregate){
+			// Now that the aggregate has been (tediously) loaded from our store, ask the cacher to cache it for further use.
+			cacheProvider.cacheAggregateInstance(loadedAggregate);
+			return loadedAggregate;
+		});
+	}
 }
 
+//TODO: Document the "cacher" argument.
 /**
  * Create a closure that will subsequently load any AR, without specifying the event sink and snapshotter each time.
  * This function simply binds the two last arguments of the loader function to specified values and returns the bound function.
@@ -107,12 +120,12 @@ function loadAggregate(ARConstructor, ARID, eventSink, snapshotter){
  * @returns {module:esdf/utils/loadAggregate~loadAggregate}
  * @throws {module:esdf/utils/loadAggregate~AggregateLoaderSinkNotGivenError} If an eventSink is not passed to the loader creation function.
  */
-function createAggregateLoader(eventSink, snapshotter){
+function createAggregateLoader(eventSink, snapshotter, cacher){
 	if(!eventSink){
 		throw new AggregateLoaderSinkNotGivenError();
 	}
 	return function _boundAggregateLoader(ARConstructor, ARID){
-		return loadAggregate(ARConstructor, ARID, eventSink, snapshotter);
+		return loadAggregate(ARConstructor, ARID, eventSink, snapshotter, cacher);
 	};
 }
 

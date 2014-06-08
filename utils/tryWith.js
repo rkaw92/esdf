@@ -61,14 +61,13 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 				when(userFunction(AR),
 				function _tryWith_userFunctionResolved(userFunctionResult){
 					// If the callback function promise has resolved, proceed to commit.
-					AR.commit(options.commitMetadata || {}).then(
-					function _tryWith_commitResolved(commitResult){
+					when.try(AR.commit.bind(AR), options.commitMetadata || {}).done(function _tryWith_commitResolved(commitResult){
 						// The commit is resolved - this is the end of our work. Report a resolution to the caller.
 						callerDeferred.resolver.resolve(userFunctionResult);
 						// Note that all snapshotting responsibility is internal to the Aggregate itself. tryWith does not make any attempts to save the aggregate's state beyond the commit operation.
 					},
 					// The commit has been rejected - use the standard error handler to retry.
-					_tryWith_commitError
+						_tryWith_commitError
 					);
 					
 				},
