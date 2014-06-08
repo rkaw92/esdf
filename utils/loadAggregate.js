@@ -6,7 +6,7 @@ var when = require('when');
 var util = require('util');
 
 /**
- * 
+ * An EventSink has not been provided to the aggregate loader function. At least an EventSink is required - otherwise, Event Soutcing as such can not function.
  */
 function AggregateLoaderSinkNotGivenError(){
 	this.name = 'AggregateLoaderSinkNotGivenError';

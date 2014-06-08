@@ -2,6 +2,7 @@
  * @module esdf/utils/QueueRouter
  */
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
+//TODO: Complete refactoring to support message processing notification (promises?). The router should be able to track which messages have been handled by all listeners.
 
 /**
  * Construct a new QueueRouter. A QueueRouter accepts annotated messages and distributes them to queues in a publish-subscribe fashion.
