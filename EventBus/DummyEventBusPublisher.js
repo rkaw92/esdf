@@ -22,7 +22,10 @@ DummyEventBusPublisher.prototype.buildRoutingKeyForEvent = function buildRouting
 DummyEventBusPublisher.prototype.publishCommit = function publishCommit(commitObject){
 	var events = commitObject.getEvents();
 	events.forEach((function(event){
-		this._router.publish(this.buildRoutingKeyForEvent(event, commitObject), {event: event, commit: commitObject});
+		this._router.publish(this.buildRoutingKeyForEvent(event, commitObject), {
+			event: event,
+			commit: commitObject
+		});
 	}).bind(this));
 };
 

@@ -19,8 +19,13 @@ describe('DummyEventPublisher', function(){
 		var q1 = subscriber.queue('q1');
 		var q2 = subscriber.queue('q2');
 		q1.bind('DummyAggregateType.TestEventType');
-		q1.listen(function(eventCommitObject){
-			testDone();
+		q1.listen(function(event, commit){
+			if(event.eventType === 'TestEventType'){
+				testDone();
+			}
+			else{
+				testDone(new Error('Invalid event type: ' + event.eventType));
+			}
 		});
 		sink.sink(new Commit([
 			new Event('TestEventType', {}),
