@@ -18,12 +18,13 @@ SomeAggregate.prototype.okay = function okay(){
 
 var sink = new esdf.test.DummyEventSink();
 var loader = esdf.utils.createAggregateLoader(sink);
+var saver = sink.sink.bind(sink);
 var tryWith = esdf.utils.tryWith;
-var repository = new esdf.utils.Repository(loader);
+var repository = new esdf.utils.Repository(loader, sink.sink.bind(sink));
 
 describe('tryWith', function(){
 	it('should pass the value returned by the user function to the promise resolution', function(done){
-		tryWith(loader, SomeAggregate, 'TestAggregate-1', function testUserFunction(testAggregate){
+		tryWith(loader, saver, SomeAggregate, 'TestAggregate-1', function testUserFunction(testAggregate){
 			testAggregate.okay();
 			return 42;
 		}).done(function(okayResolution){

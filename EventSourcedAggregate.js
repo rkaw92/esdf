@@ -45,8 +45,8 @@ function AggregateEventHandlerMissingError(message){
 util.inherits(AggregateEventHandlerMissingError, Error);
 
 /**
- * Generated when an aggregate was attempted to be used incorrectly.
- * This currently only occurs when a snapshot operation is requested, but the aggregate lacks snapshot support.
+ * Generated when an aggregate's method was attempted to be used incorrectly.
+ * This currently only occurs when a snapshot operation is requested, but the aggregate lacks snapshot support, or a non-array is passed into _markEventsAsCommitted.
  * @constructor
  * @extends Error
  */
@@ -58,6 +58,34 @@ function AggregateUsageError(message){
 	};
 }
 util.inherits(AggregateUsageError, Error);
+
+/**
+ * Sink function not passed. To commit an aggregate's staged events, a function which accepts the commit needs to be provided.
+ * @constructor
+ * @extends Error
+ */
+function AggregateSinkFunctionMissingOnCommitError(){
+	this.name = 'AggregateSinkFunctionMissingOnCommitError';
+	this.message = 'EventSourcedAggregate#commit requires an event sink function to be passed.';
+	this.labels = {
+		critical: true
+	};
+}
+util.inherits(AggregateSinkFunctionMissingOnCommitError, Error);
+
+/**
+ * The first or the last event is not (no longer?) present in the aggregate's staging queue and so, the range indicated by the list can not be marked as committed.
+ * @constructor
+ * @extends Error
+ */
+function AggregateEventNotStagedError(){
+	this.name = 'AggregateEventNotStagedError';
+	this.message = 'The specified range of events is not present in the aggregate\'s staging queue - can not mark as committed.';
+	this.labels = {
+		critical: true
+	};
+}
+util.inherits(AggregateEventNotStagedError, Error);
 
 /**
  * Basic constructor for creating an in-memory object representation of an Aggregate. Aggregates are basic business objects in the domain and the primary source of events.
@@ -84,12 +112,6 @@ function EventSourcedAggregate(){
 	 * @type module:esdf/core/Event~Event[]
 	 */
 	this._stagedEvents = undefined;
-	/**
-	 * The assigned Event Sink that events will be committed to. This variable should be assigned from the outside using the assignEventSink method.
-	 * @private
-	 * @type Object
-	 */
-	this._eventSink = undefined;
 	/**
 	 * Aggregate's proper type name - used to check if commits belong here when loading. Validation makes it impossible to apply another class's commits.
 	 * @private
@@ -134,26 +156,6 @@ function EventSourcedAggregate(){
 	 */
 	this._currentCommit = null;
 }
-
-/**
- * Set the Event Sink to be used by the aggregate during commit.
- * @method
- * @public
- * @param {module:esdf/interfaces/EventSinkInterface} eventSink The Event Sink object to use.
- */
-EventSourcedAggregate.prototype.setEventSink = function setEventSink(eventSink){
-	this._eventSink = eventSink;
-};
-
-/**
- * Get the Event Sink in use.
- * @method
- * @public
- * @returns {module:esdf/interfaces/EventSinkInterface}
- */
-EventSourcedAggregate.prototype.getEventSink = function getEventSink(){
-	return this._eventSink;
-};
 
 /**
  * Set the Aggregate ID of the instance. Used when saving commits, to mark as belonging to a particular entity.
@@ -234,6 +236,7 @@ EventSourcedAggregate.prototype.getNextSequenceNumber = function getNextSequence
 
 /**
  * Get an array of all staged events which are awaiting commit, in the same order they were staged.
+ * Alias of getUncommittedEvents.
  * @method
  * @public
  * @returns {module:esdf/core/Event~Event[]}
@@ -264,6 +267,20 @@ EventSourcedAggregate.prototype.applyCommit = function applyCommit(commit){
 	});
 	// Increment our internal sequence number counter.
 	this._updateSequenceNumber(commit.sequenceSlot);
+};
+
+/**
+ * Apply a commit during the first run, non-replayed. Unlike applyCommit, this does not apply the individual events (since _stageEvent already takes care of that).
+ * Additionally, after registering a commit, the events which took part in it are removed from the list of events pending commit.
+ * @method
+ * @public
+ * @param {module:esdf/core/Event~Event} firstEvent The first event in the commit.
+ * @param {module:esdf/core/Event~Event} lastEvent The last event in the commit - together with firstEvents, it marks a range for removal from the pending list.
+ * @param {number} sequenceSlot The sequence slot assigned to the commit within the aggregate's commit stream.
+ */
+EventSourcedAggregate.prototype.registerCommit = function registerCommit(firstEvent, lastEvent, sequenceSlot){
+	this._markEventsAsCommitted(firstEvent, lastEvent);
+	this._updateSequenceNumber(sequenceSlot);
 };
 
 /**
@@ -399,6 +416,39 @@ EventSourcedAggregate.prototype.supportsSnapshotGeneration = function supportsSn
 };
 
 /**
+ * Get the array of events which are pending a commit. These are the events that have been staged by the aggregate itself since it was rehydrated from the event stream.
+ * @method
+ * @public
+ * @returns {module:esdf/core/Event~Event[]}
+ */
+EventSourcedAggregate.prototype.getUncommittedEvents = function getUncommittedEvents(){
+	// Return a shallow copy, so that modifications to the array such as .pop() will not affect our instance.
+	return this._stagedEvents.slice();
+};
+
+/**
+ * Mark a range of events as committed. The events are subsequently removed from the set of uncommitted events.
+ * @method
+ * @private
+ * TODO: Fix the parameters/description.
+ * @param {module:esdf/core/Event~Event[]} events The array of events to mark as committed. Note that only the beginning and the end (the first and the last elements) are considered. Thus, only contigious lists whose start and end coincide with the passed value's will be removed.
+ */
+EventSourcedAggregate.prototype._markEventsAsCommitted = function _markEventsAsCommitted(first, last){
+	// Guard clause: make sure that we got a proper range with no start/end missing.
+	if(typeof(first) !== 'object' || typeof(last) !== 'object'){
+		throw new AggregateUsageError('First/last events not specified when trying to mark an event range as committed');
+	}
+	var firstIndex = this._stagedEvents.indexOf(first);
+	var lastIndex = this._stagedEvents.indexOf(last);
+	var removeCount = lastIndex - firstIndex + 1;
+	// Guard clause: reject marking requests for events which are no longer in the staged queue.
+	if(firstIndex < 0 || lastIndex < 0){
+		throw new AggregateEventNotStagedError();
+	}
+	this._stagedEvents.splice(firstIndex, removeCount);
+};
+
+/**
  * Save all staged events to the Event Sink (assigned earlier manually from outside to the Aggregate's "_eventSink" property).
  * A snapshot save is automatically triggered (in the background) if the snapshotting strategy allows it.
  * @method
@@ -406,7 +456,11 @@ EventSourcedAggregate.prototype.supportsSnapshotGeneration = function supportsSn
  * @param {Object} metadata The data that should be saved to storage along with the commit object. Should contain serializable data - as a basic heuristic, if JSON can stringify it, it qualifies.
  * @returns {external:Promise} Promise/A-compliant promise object which supports then(). The promise is resolved when the commit is saved, and rejected if the saving fails for any reason (including optimistic concurrency).
  */
-EventSourcedAggregate.prototype.commit = function commit(metadata){
+//TODO: Remove .commit() - this should be handled by a higher layer, such as tryWith.
+EventSourcedAggregate.prototype.commit = function commit(sinkFunction, metadata){
+	if(typeof(sinkFunction) !== 'function'){
+		throw new AggregateSinkFunctionMissingOnCommitError();
+	}
 	if(typeof(metadata) !== 'object' || metadata === null){
 		metadata = {};
 	}
@@ -415,6 +469,7 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
 		this._nextSequenceNumber = 1;
 	}
 	var self = this;
+	//TODO: Remove when.defer, use when.promise instead.
 	var emitDeferred = when.defer(); //emission promise - to be resolved when the event batch is saved in the database
 	// Try to sink the commit. If empty, return success immediately.
 	if(!this._stagedEvents){
@@ -426,7 +481,7 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
 	// Construct the commit object. We use slice() to make a point-in-time snapshot of the array's structure, so that further pushes/removals do not affect it.
 	var commitObject = new Commit(this._stagedEvents.slice(), this._aggregateID, this._nextSequenceNumber, this._aggregateType, metadata);
 	// ... and tell the sink to try saving it, reacting to the result:
-	when(self._eventSink.sink(commitObject),
+	when(sinkFunction(commitObject),
 	function _commitSinkSucceeded(result){
 		// Now that the commit is sunk, we can clear the event staging area - new events will end up in subsequent commits.
 		self._stagedEvents = [];
@@ -443,6 +498,7 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
 		if(self.supportsSnapshotGeneration() && self._snapshotter && self._snapshotStrategy && self._snapshotStrategy(commitObject)){
 			self._saveSnapshot();
 			// Since saving a snapshot is never mandatory for correct operation of an event-sourced application, we do not have to react to errors.
+			//TODO: Some kind of auditing / failure logging would be desirable here, even if the errors do not matter from the correctness' point of view.
 		}
 		return emitDeferred.resolver.resolve(result);
 	},
@@ -473,7 +529,7 @@ EventSourcedAggregate.prototype._saveSnapshot = function _saveSnapshot(){
 		return this._snapshotter.saveSnapshot(snapshotObject).then(
 		function _snapshotSaveSuccess(){
 			if(self._IOObserver){
-				self._IOObserver.emit('SnapshotSaveSuccess', {snapshotObject: snapshotObject});
+				self._IOObserver.emit('SnapshotSaveSuccess', { snapshotObject: snapshotObject });
 			}
 			return when.resolve();
 		},

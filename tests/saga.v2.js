@@ -13,6 +13,7 @@ var assert = require('assert');
 var sink = new esdf.test.DummyEventSink();
 var streamer = new esdf.test.DummyEventSinkStreamer(sink);
 var loader = esdf.utils.createAggregateLoader(sink);
+var saver = sink.sink.bind(sink);
 
 function OrderSaga(){
 	var initialStage = new SagaStage('init', ['OrderIssued']);
@@ -54,7 +55,7 @@ describe('Saga', function(){
 				}
 			});
 			streamer.start();
-			tryWith(loader, OrderSaga, 'testSaga', function(saga){
+			tryWith(loader, saver, OrderSaga, 'testSaga', function(saga){
 				var orderEvent = new Event('OrderIssued', {amount: 123.00});
 				var orderCommit = new Commit([orderEvent], 'order123', 1, 'Order');
 				return saga.processEvent(orderEvent, orderCommit);

@@ -9,7 +9,7 @@ var assert = require('assert');
 
 var sink = new DummyEventSink();
 var loader = AggregateLoader.createAggregateLoader(sink, undefined);
-var repository = new Repository(loader);
+var repository = new Repository(loader, sink.sink.bind(sink));
 
 function DummyAggregate(){
 	this.ok = false;

@@ -10,20 +10,29 @@ var util = require('util');
 
 var aggr = new EventSourcedAggregate();
 aggr._pages = [];
-aggr.setEventSink(new DummyEventSink());
 aggr.setAggregateID('dummy1');
 
 describe('EventSourcedAggregate', function(){
+	describe('._markEventsAsCommitted', function(){
+		var aggregate = new EventSourcedAggregate();
+		aggregate.onDummyEvent = function onDummyEvent(){};
+		var event = new Event('DummyEvent', {});
+		aggregate._stageEvent(event);
+		assert.equal(aggregate.getUncommittedEvents().length, 1);
+		aggregate._markEventsAsCommitted(event, event);
+		assert.equal(aggregate.getUncommittedEvents().length, 0);
+	});
 	describe('.commit() success', function(){
 		it('should commit the event in a commit successfully', function(test_done){
-			aggr.getEventSink()._wantSinkSuccess = true;
 			aggr.onPageCreated = function(event){
 				var eventPayload = event.eventPayload;
 				this._pages.push({title: eventPayload.arg1, take: eventPayload.take});
 			};
 			aggr._stageEvent(new Event('PageCreated', {arg1: 'val1', take: 1}));
 			assert.equal(aggr._pages[0].title, 'val1', 'AR event handler broken');
-			when(aggr.commit(),
+			when(aggr.commit(function dummySinkFunction(commit){
+				return when.resolve();
+			}),
 			function(result){
 				return test_done(null); //no error
 			},
@@ -36,9 +45,10 @@ describe('EventSourcedAggregate', function(){
 	
 	describe('.commit() failure', function(){
 		it('should fail to emit the event', function(test_done){
-			aggr.getEventSink()._wantSinkSuccess = false;
 			aggr._stageEvent(new Event('PageCreated', {arg1: 'val1', take: 2}));
-			when(aggr.commit(),
+			when(aggr.commit(function dummyFailingSinkFunction(commit){
+				return when.reject();
+			}),
 			function(result){
 				return test_done(new Error('pageCreated event commit should fail, but it worked somehow!'));
 			},
@@ -51,21 +61,30 @@ describe('EventSourcedAggregate', function(){
 	
 	describe('.retry test', function(){
 		it('should commit the event successfully, despite a retry in the middle', function(test_done){
-			aggr.getEventSink()._wantSinkSuccess = false;
-			aggr.getEventSink()._failureType = 'concurrency';
+			var succeed = false;
+			function dummySinkFunction(commit){
+				if(succeed){
+					return when.resolve();
+				}
+				else{
+					return when.reject();
+				}
+			}
 			var sinkObserver = new EventEmitter();
 			var reloaded = false;
 			sinkObserver.on('error', function(error){
-				aggr.getEventSink()._wantSinkSuccess = true;
+				succeed = true;
 				reloaded = true; //in lieu of a real reload
-				aggr.commit().then(function(){
+				aggr.commit(dummySinkFunction).then(function(){
 					test_done();
 				}, function(err){
 					test_done(err);
 				});
 			});
 			aggr._stageEvent(new Event('PageCreated', {arg1: 'val2', take: 3}));
-			aggr.commit().then(undefined, function(){sinkObserver.emit('error');});
+			aggr.commit(dummySinkFunction).then(undefined, function commitFailed(){
+				sinkObserver.emit('error');
+			});
 		});
 	});
 	
@@ -81,13 +100,13 @@ describe('EventSourcedAggregate', function(){
 			}
 			OkayAggregate.prototype = new EventSourcedAggregate();
 			
+			var eventSink = new DummyEventSink();
 			var ar2 = new OkayAggregate();
 			ar2.setAggregateID('dummy3');
-			ar2.setEventSink(new DummyEventSink());
 			ar2._stageEvent(new Event('Okayed', {take: 4}));
-			ar2.commit().then(function(){
+			ar2.commit(eventSink.sink.bind(eventSink)).then(function(){
 				// When we have committed the AR's events, load another instance of the same entity and see if the event shows up.
-				loadAggregate(OkayAggregate, 'dummy3', ar2.getEventSink()).then(
+				loadAggregate(OkayAggregate, 'dummy3', eventSink).then(
 				function _aggregateLoaded(ar3){
 					test_done(ar3.ok ? null : new Error('Expected ar3.ok to be true, but instead got: ' + ar3.ok));
 				},

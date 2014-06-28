@@ -4,18 +4,32 @@
 
 var tryWith = require('./tryWith.js').tryWith;
 
+//TODO: Following the tryWith / loader refactoring, this is the next logical step.
+
 /**
  * A Repository facilitates loading aggregates to perform operations on them. It is a object-oriented wrapper around tryWith for all means and purposes.
  *  It is the preferred way of obtaining aggregate instances in services.
  * @constructor
  */
-function Repository(loader){
+function Repository(loader, saver){
+	if(!loader){
+		throw new Error('Loader function not provided when constructing the Repository.');
+	}
+	if(!saver){
+		throw new Error('Saver function not provided when constructing the Repository.');
+	}
 	/**
 	 * The loader function (bound to a sink and, optionally, a snapshotter) for partial application.
 	 * @type {function}
 	 * @private
 	 */
 	this._loader = loader;
+	/**
+	 * The saver function, used to sink the commits supplied by an aggregate into a persistent store.
+	 * @type {function}
+	 * @private
+	 */
+	this._saver = saver;
 }
 
 /**
@@ -28,7 +42,7 @@ function Repository(loader){
  * @returns {external:Promise} a promise that resolves when the user function has resolved and the events are committed to the event sink.
  */
 Repository.prototype.invoke = function(aggregateConstructor, aggregateID, userFunction, options){
-	return tryWith.call(undefined, this._loader, aggregateConstructor, aggregateID, userFunction, options);
+	return tryWith.call(undefined, this._loader, this._saver, aggregateConstructor, aggregateID, userFunction, options);
 };
 
 module.exports.Repository = Repository;

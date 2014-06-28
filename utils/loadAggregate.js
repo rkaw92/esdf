@@ -4,6 +4,8 @@
 
 //TODO: Documentation.
 
+//TODO: Replace loader function generation with an actual object-oriented Loader interface and a factory for providers.
+
 var when = require('when');
 var util = require('util');
 
@@ -41,6 +43,10 @@ NoOpCacher.prototype.cacheAggregateInstance = function cacheAggregateInstance(in
 	return;
 };
 
+
+//TODO: Refactor this into a pipeline-based function where subsequent steps are individual functions accepting an input and producing an output / generating an error. when.js may be perfect for this.
+//NOTE: Such a pipeline function would need a means to terminate execution and return a result, or provide conditional loading (for instance, snapshot + event application work in synergy, but if two different snapshot mechanisms are used, they would have to supplement or replace each other).
+
 /**
  * Load an EventSourcedAggregate using an EventSink, assisted by a Snapshotter for increased performance (optional). This operation performs rehydration under the hood - if a snapshot is found, rehydration is done since that snapshot.
  *  Note that loading an empty Aggregate, that is, one that has zero commits, is a valid operation by design. In such case, the AR returned will be in its initial state, right after its constructor is called.
@@ -52,6 +58,7 @@ NoOpCacher.prototype.cacheAggregateInstance = function cacheAggregateInstance(in
  * @returns {external:Promise} a promise that resolves with the Aggregate as resolution value if loading succeeded, and rejects with a passed-through error if failed. If snapshot loading fails, the aggregate is rehydrated from events and the loading can still succeed.
  */
 //TODO: Insert instrumentation probes to indicate when a snapshotter is not used (attempted) at all, to aid performance troubleshooting.
+//TODO: This kind of instrumentation requires injection of some context data (depends on the service/access layer used in the app). The loader should provide for this. Is a "metadata" parameter suitable?
 function loadAggregate(ARConstructor, ARID, eventSink, snapshotter, cacher){
 	// Determine the aggregate type. The snapshot loader and/or the rehydrator (sink) may need this to find the data.
 	var aggregateType = ARConstructor.prototype._aggregateType;
@@ -60,7 +67,6 @@ function loadAggregate(ARConstructor, ARID, eventSink, snapshotter, cacher){
 	function constructAggregate(){
 		var ARObject = new ARConstructor();
 		ARObject.setAggregateID(ARID);
-		ARObject.setEventSink(eventSink);
 		// If no snapshotter has been passed (or is not needed/used), instead of complicating logic, we simply replace it locally with a stub that knows no aggregates and rejects all loads.
 		//  This happens in constructAggregate since it relies on the AR object existing.
 		if(!snapshotter || !ARObject.supportsSnapshotApplication()){
@@ -69,6 +75,7 @@ function loadAggregate(ARConstructor, ARID, eventSink, snapshotter, cacher){
 		ARObject.setSnapshotter(snapshotter);
 		return ARObject;
 	}
+	
 	
 	var cacheProvider = cacher || new NoOpCacher();
 	
@@ -111,7 +118,7 @@ function loadAggregate(ARConstructor, ARID, eventSink, snapshotter, cacher){
 	}
 }
 
-//TODO: Document the "cacher" argument.
+//TODO: Document the "cacher" argument. Better: eliminate cachers altogether.
 /**
  * Create a closure that will subsequently load any AR, without specifying the event sink and snapshotter each time.
  * This function simply binds the two last arguments of the loader function to specified values and returns the bound function.
