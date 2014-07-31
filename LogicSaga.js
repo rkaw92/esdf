@@ -112,6 +112,7 @@ LogicSaga.prototype._finishTimer = function _finishTimer(timerID, actualTriggerT
 
 LogicSaga.prototype.onEventProcessed = function onEventProcessed(event, commit){
 	this._acceptedEvents.push(event.eventPayload.event);
+	this._seenEventIDs[event.eventID] = true;
 };
 
 LogicSaga.prototype.onTimerSetup = function onTimerSetup(event, commit){
