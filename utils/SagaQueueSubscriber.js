@@ -2,7 +2,7 @@ var esdf = require('esdf');
 var when = require('when');
 
 function SagaQueueSubscriber(sagaConstructor, subscriberObject, options){
-	if(!(sagaConstructor instanceof Saga){
+	if(!(sagaConstructor instanceof Saga)){
 		throw new Error('SagaQueueSubscriber requires a constructor derived from Saga');
 	}
 	if(options.queueName){

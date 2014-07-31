@@ -25,7 +25,7 @@ function Commit(events, sequenceID, sequenceSlot, aggregateType, metadata){
 }
 
 /**
- * Get the events contained within this commit.
+ * Get the events contained within this commit. 
  * @method
  * @returns {module:esdf/core/Event~Event[]} An array containing all events within this commit, in the same order that they were staged in its source aggregate / added to the commit.
  */
