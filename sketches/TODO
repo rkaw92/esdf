@@ -1,0 +1,9 @@
+TODO:
+* Evaluate the possibility of moving all Commit-related concerns into another, non-Aggregate layer (perhaps the loading/saving infrastructure?)
+	* Enable the temporary storage/retrieval of labels (or, really, any auxiliary values) in an Aggregate
+	* Use the labels to store sequence metadata and read it for composing a Commit
+* Alternatively:
+	* Create a Repository interface for saving/loading IAggregateRoot
+	* Define a retry strategy interface (simple? staged/embedded retry?)
+	* Define a few default retry strategies (N tries, infinite, time limit; delays)
+	* Implement an EventSourcedRepository which takes care of Commits as a low-level concern and only exposes Events to the Aggregate (the AR never sees the commits; sequences are handled transparently)
