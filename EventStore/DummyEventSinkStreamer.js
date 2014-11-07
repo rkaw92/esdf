@@ -11,7 +11,7 @@ var when = require('when');
  * Internally, it acts as a simple method proxy - it takes the sink's QueueProcessor and registers the publisher's publishCommit method as the worker on the queue.
  */
 function DummyEventSinkStreamer(dummyEventSink){
-	this._sinkDispatchQueue = dummyEventSink.dispatchQueue;
+	this._sinkDispatchQueue = dummyEventSink.getDispatchQueue();
 	this._publisherAssigned = false;
 }
 

@@ -37,11 +37,11 @@ function DummyEventSink(){
 	 */
 	this._streams = {};
 	/**
-	 * The EventSource-like local emitter. Used by Streamers to register a handler on.
-	 * @public
-	 * @type {module:esdf/utils/QueueProcessor.QueueProcessor}
+	 * A list of queues that newly-sinked events shall be pushed onto.
+	 * @private
+	 * @type {module:esdf/utils/QueueProcessor.QueueProcessor[]}
 	 */
-	this.dispatchQueue = new QueueProcessor();
+	this._dispatchQueues = [];
 }
 
 /**
@@ -73,7 +73,7 @@ DummyEventSink.prototype.sink = function sink(commit){
 				}
 			}
 			// Dispatch the event to the dummy queue.
-			this.dispatchQueue.push(commit);
+			this._dispatch(commit);
 			return resolve(true);
 		}
 		else{
@@ -115,6 +115,30 @@ DummyEventSink.prototype.rehydrate = function rehydrate(object, sequenceID, sinc
 			return reject(rehydrateError);
 		}
 	}).bind(this));
+};
+
+/**
+ * Get a new dispatch queue. All new events sinked to this DummyEventSink shall be pushed onto the queue.
+ * Note that *only* the DummyEventSink needs this because of its coupling to DummyEventSinkStreamer.
+ * 
+ * @returns {module:esdf/utils/QueueProcessor.QueueProcessor}
+ */
+DummyEventSink.prototype.getDispatchQueue = function getDispatchQueue(){
+	var newDispatchQueue = new QueueProcessor();
+	this._dispatchQueues.push(newDispatchQueue);
+	return newDispatchQueue;
+};
+
+/**
+ * Dispatch a commit to all queues. This is how consumers (streamers, most likely) get the events for publishing.
+ * 
+ * @private
+ * @param {module:esdf/core/Commit~Commit} commit The commit to dispatch via the dispatch queues.
+ */
+DummyEventSink.prototype._dispatch = function _dispatch(commit){
+	this._dispatchQueues.forEach(function(queue){
+		queue.push(commit);
+	});
 };
 
 module.exports.DummyEventSink = DummyEventSink;
