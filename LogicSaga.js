@@ -95,12 +95,10 @@ LogicSaga.prototype.handleTimer = function handleTimer(timerID, actualTriggerTim
 	var timerType = this._activeTimers[timerID];
 	var timerHandlerName = 'handle' + timerType + 'Timer';
 	this._finishTimer(timerID, actualTriggerTime);
-	if(typeof(this[timerHandlerName]) === 'function'){
-		return whenFunctions.call(this[timerHandlerName].bind(this), timerID, actualTriggerTime, deps);
-	}
-	else{
+	if(typeof(this[timerHandlerName]) !== 'function'){
 		throw new LogicSagaTimerHandlerMissingError(timerID, timerType);
 	}
+	return whenFunctions.call(this[timerHandlerName].bind(this), timerID, actualTriggerTime, deps);
 };
 
 LogicSaga.prototype._finishTimer = function _finishTimer(timerID, actualTriggerTime){
