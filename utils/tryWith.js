@@ -37,8 +37,14 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 
 	// By default, an infinite retry strategy is employed.
 	var retryStrategy = (typeof(options.retryStrategy) === 'function') ? options.retryStrategy : RetryStrategy.CounterStrategyFactory(Infinity);
-	var shouldTryAgain = function shouldTryAgain(err){
-		return typeof(retryStrategy(err)) !== 'object';
+	var shouldTryAgain = function shouldTryAgain(error){
+		var strategyError = retryStrategy(error);
+		// The strategy should tell us whether it thinks retrying is reasonable:
+		var strategyRetryDecision = (!strategyError);
+		// However, we do not have to agree with it - all critical errors, no matter what the strategy has decided, should fail the tryWith procedure.
+		var ownDecision = (!error || !(error.labels) || !(error.labels.critical));
+		
+		return strategyRetryDecision && ownDecision;
 	};
 	
 	function singlePass() {
