@@ -40,6 +40,19 @@ describe('EventSourcedAggregateRootRepository', function(){
 				throw operationError;
 			});
 		});
+		it('should generate an operation trace on failure', function(){
+			var store = new DummyEventStore();
+			var repository = new EventSourcedAggregateRootRepository(store);
+			return repository.do(DummyAggregateRoot, 'AR1', function failHard(instance){
+				throw new Error('Expected error');
+			}, {
+				trace: true
+			}).then(function bailOutOnUnexpectedSuccess(){
+				throw new Error('Operation succeeded unexpectedly');
+			}, function handleOperationError(operationError){
+				assert(operationError.trace);
+			});
+		});
 	});
 });
 
