@@ -30,12 +30,7 @@ describe('tryWith', function(){
 			ar._stageEvent(new Event('DummyEvent', {bull: "crap"}));
 		}, {
 			failureLogger: function(err){
-				if(err.labels && err.labels.tryWithErrorType === 'commitError'){
-					++commit_fail_count;
-				}
-				else{
-					console.log('Unknown error type!');
-				}
+				commit_fail_count += 1;
 				if(commit_fail_count >= 5){ sink._wantSinkSuccess = true; }
 			},
 			commandID: 'FAILME'

@@ -7,7 +7,18 @@ var enrichError = require('./enrichError.js').enrichError;
 var hashTransform = require('./hashTransform.js').hashTransform;
 var RetryStrategy = require('./RetryStrategy.js');
 
-//TODO: Document this function.
+//TODO: Document the options.retryStrategy parameter.
+
+/**
+ * Load an Aggregate Root instance and execute a function on it.
+ * @param {function} loaderFunction The function that shall be used for loading the Aggregate Root. One can be obtained from esdf.utils.createAggregateLoader.
+ * @param {function} ARConstructor A constructor which, when called with "new", should return an Aggregate Root instance in its base (zero) state. Used by the loader function.
+ * @param {string} ARID ID of the Aggregate Root to load. The storage unit (for example, event stream) associated with this ID is loaded and used to restore the state of the AR.
+ * @param {function} userFunction The function that will be executed against the Aggregate Root instance after it has been rehydrated. It accepts a single argument - the instance - and should return a promise-or-value. The aggregate's state is only saved once the promise resolves.
+ * @param {Object} [options] Additional settings specifying how the load/execute/save operation should be carried out.
+ * @param {function} [options.failureLogger] A function which shall be called if an error during loading or saving occurs. The error is passed as the sole argument to the failure logger function.
+ * @returns {Promise} A Promise which fulfills with the value which the userFunction has returned/fulfilled with, or rejects if the loading, execution of the user function or the saving failed.
+ */
 function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 	if(!options){
 		options = {}; // Because referring to undefined's properties (as could be the case below) is an error in JS.
@@ -15,7 +26,12 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 	
 	// Process the provided options.
 	// Delay function, used to delegate execution to the event loop some time in the future.
-	var delay = (options.delegationFunction) ? options.delegationFunction : setImmediate;
+	var delegationFunction = (options.delegationFunction) ? options.delegationFunction : setImmediate;
+	function delay(continuation) {
+		return when.promise(function(resolve){
+			delegationFunction(resolve);
+		}).then(continuation);
+	}
 	// Allow the caller to specify a failure logger function, to which all intermediate errors will be passed.
 	var failureLogger = (options.failureLogger) ? options.failureLogger : function(){};
 
@@ -25,74 +41,34 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 		return typeof(retryStrategy(err)) !== 'object';
 	};
 	
-	// Initialize the promise used for notifying the caller of the result.
-	var callerDeferred = when.defer();
-	
-	// Define an internal function - this function will be called recursively (through the delay function) from within.
-	function _tryWith_singlePass(){
-		// Prepare an error handler function factory.
-		function generateErrorHandler(errorName){
-			// The function returned by this factory will be used to retry or fail and exit the whole attempt.
-			return function _tryWith_error(err){
-				var strategyAllowsAnotherTry = shouldTryAgain(err);
-				if(strategyAllowsAnotherTry){
-					// The strategy says it's ok to retry:
-					enrichError(err, 'tryWithErrorType', errorName);
-					failureLogger(err);
-					// In both cases - optimistic concurrency exceptions and other errors - the "delay" is applied (mostly, not to overflow the stack).
-					delay(_tryWith_singlePass);
-				}
-				else{
-					// A disqualifying error, according to the strategy - no point in any retries. Give up now.
-					callerDeferred.resolver.reject(err);
-				}
-			};
-		}
-		// Now, instantiate actual error handler functions, from the factory defined above.
-		var _tryWith_executionError = generateErrorHandler('executionError');
-		var _tryWith_commitError = generateErrorHandler('commitError');
-		var _tryWith_aggregateLoadingError = generateErrorHandler('aggregateLoadingError');
-		
-		// Delegate the loading itself to the dependency-injected loader function (hopefully, it's something useful, such as a bound repository wrapper).
-		when(loaderFunction(ARConstructor, ARID),
-		function _tryWith_aggregateLoaded(AR){
-			// Try to execute the provided function. If the execution itself fails, do not retry.
-			try{
-				when(userFunction(AR),
-				function _tryWith_userFunctionResolved(userFunctionResult){
-					// If the callback function promise has resolved, proceed to commit.
-					when.try(AR.commit.bind(AR), options.commitMetadata || {}).done(function _tryWith_commitResolved(commitResult){
-						// The commit is resolved - this is the end of our work. Report a resolution to the caller.
-						callerDeferred.resolver.resolve(userFunctionResult);
-						// Note that all snapshotting responsibility is internal to the Aggregate itself. tryWith does not make any attempts to save the aggregate's state beyond the commit operation.
-					},
-					// The commit has been rejected - use the standard error handler to retry.
-						_tryWith_commitError
-					);
-					
-				},
-				function _tryWith_userFunctionRejected(reason){
-					// Signal the rejection to the caller.
-					callerDeferred.resolver.reject(reason);
-				},
-				function _tryWith_callbackProgress(notificationInfo){
-					// Relay the notification to the caller. Not all that important, but nice to have!
-					callerDeferred.resolver.notify(notificationInfo);
-				});
+	function singlePass() {
+		// Delegate the loading itself to the dependency-injected loader function (hopefully, it's something useful, such as a bound Event Store method).
+		return when.try(loaderFunction, ARConstructor, ARID).then(function runUserFunction(aggregateInstance) {
+			return when.try(userFunction, aggregateInstance).then(function saveAggregateState(userFunctionResult) {
+				return when.try(aggregateInstance.commit.bind(aggregateInstance), options.commitMetadata || {}).catch(function handleSavingError(savingError) {
+					failureLogger(savingError);
+					var strategyAllowsAnotherTry = shouldTryAgain(savingError);
+					if (strategyAllowsAnotherTry) {
+						return delay(singlePass);
+					}
+					else {
+						return when.reject(savingError);
+					}
+				}).yield(userFunctionResult);
+			});
+		}, function handleLoadingError(loadingError) {
+			failureLogger(loadingError);
+			var strategyAllowsAnotherTry = shouldTryAgain(loadingError);
+			if (strategyAllowsAnotherTry) {
+				return delay(singlePass);
 			}
-			catch(userFunctionException){
-				(function _tryWith_callbackExceptionThrown(userFunctionException){
-					// Signal the exception to the caller via a rejection of the previously-returned promise.
-					callerDeferred.resolver.reject(userFunctionException);
-				})(userFunctionException);
+			else {
+				return when.reject(loadingError);
 			}
-		},
-		_tryWith_aggregateLoadingError
-		);
+		});
 	}
-	_tryWith_singlePass();
 	
-	return callerDeferred.promise;
+	return singlePass();
 }
 
 module.exports.tryWith = tryWith;
