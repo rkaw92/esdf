@@ -45,4 +45,23 @@ describe('tryWith', function(){
 		},
 		function(reason){test_finished(reason ? reason : new Error('tryWith callback rejected!'));});
 	});
+	
+	it('should immediately fail despite a retry strategy deciding to retry', function(testFinished) {
+		var testError = new Error('Test critical error');
+		testError.name = 'TestError';
+		testError.labels = {
+			critical: true
+		};
+		
+		var errorLoader = function errorLoader(aggregateConstructor, aggregateID) {
+			return when.reject(testError);
+		};
+		
+		tryWith(errorLoader, DummyAggregate, 'dummy-3', function(){}).done(function() {
+			testFinished(new Error('Unexpected success - tryWith() was supposed to reject'));
+		}, function(tryWithError) {
+			assert(tryWithError.name, 'TestError');
+			testFinished();
+		});
+	});
 });
