@@ -17,7 +17,7 @@
 	],
 	"dependencies": {
 		"uuid": "1.4.x",
-		"when": "3.2.x",
+		"when": "3.7.x",
 		"eventemitter2": "0.4.x"
 	},
 	"license": "GPL3",
