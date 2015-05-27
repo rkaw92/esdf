@@ -31,6 +31,12 @@ function DummyEventSink(){
 	 */
 	this._failureType = 'DummyEventSink test failure';
 	/**
+	 * The labels to be applied to the simulated errors.
+	 * @public
+	 * @type {Object}
+	 */
+	this._failureLabels = {};
+	/**
 	 * The event streams holding the sunk data.
 	 * @private
 	 * @type {Object.<string, module:esdf/core/Commit[]>}
@@ -56,6 +62,7 @@ DummyEventSink.prototype.sink = function sink(commit){
 	return when.promise((function(resolve, reject){
 		var sinkError = new Error('DummyEventSink.sink:reject');
 		sinkError.type = this._failureType;
+		sinkError.labels = this._failureLabels;
 		if(this._wantSinkSuccess){
 			var self = this;
 			// Case 1: No commits in this sequence yet.
@@ -69,7 +76,11 @@ DummyEventSink.prototype.sink = function sink(commit){
 				}
 				else{
 					// Case 3: Slot number conflict.
-					return reject(new Error('DummyEventSink.sink:OptimisticConcurrencyException(' + commit.sequenceSlot + ',' + this._streams[commit.sequenceID].length + ')'));
+					var concurrencyException = new Error('DummyEventSink.sink:OptimisticConcurrencyException(' + commit.sequenceSlot + ',' + this._streams[commit.sequenceID].length + ')');
+					concurrencyException.labels = {
+						isRetriable: true
+					};
+					return reject(concurrencyException);
 				}
 			}
 			// Dispatch the event to the dummy queue.
