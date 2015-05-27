@@ -26,6 +26,9 @@ describe('tryWith', function(){
 	it('should execute the given method and commit the results after exactly 5 unsuccessful tries', function(test_finished){
 		var commit_fail_count = 0;
 		sink._wantSinkSuccess = false;
+		sink._failureLabels = {
+			isRetriable: true
+		};
 		tryWith(loader, DummyAggregate, 'dummy-2', function(ar){
 			ar._stageEvent(new Event('DummyEvent', {bull: "crap"}));
 		}, {
@@ -49,9 +52,6 @@ describe('tryWith', function(){
 	it('should immediately fail despite a retry strategy deciding to retry', function(testFinished) {
 		var testError = new Error('Test critical error');
 		testError.name = 'TestError';
-		testError.labels = {
-			critical: true
-		};
 		
 		var errorLoader = function errorLoader(aggregateConstructor, aggregateID) {
 			return when.reject(testError);

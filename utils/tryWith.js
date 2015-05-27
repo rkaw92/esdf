@@ -42,7 +42,7 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 		// The strategy should tell us whether it thinks retrying is reasonable:
 		var strategyRetryDecision = (!strategyError);
 		// However, we do not have to agree with it - all critical errors, no matter what the strategy has decided, should fail the tryWith procedure.
-		var ownDecision = (!error || !(error.labels) || !(error.labels.critical));
+		var ownDecision = (error && error.labels && error.labels.isRetriable);
 		
 		return strategyRetryDecision && ownDecision;
 	};
