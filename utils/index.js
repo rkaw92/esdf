@@ -18,3 +18,5 @@ module.exports.PublishMultiplexer = require('./PublishMultiplexer').PublishMulti
 module.exports.Repository = require('./Repository').Repository;
 module.exports.deriveUUID = require('./deriveUUID').deriveUUID;
 module.exports.SnapshotStrategy = require('./SnapshotStrategy');
+module.exports.DelayedShiftArrayQueue = require('./Queue').DelayedShiftArrayQueue;
+module.exports.WritableQueue = require('./WritableQueue').WritableQueue;

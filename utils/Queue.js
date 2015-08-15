@@ -9,24 +9,28 @@ function DelayedShiftArrayQueue(options){
 	//Initialize the backing array.
 	this.backingStore = [];
 	this.backingStoreOffset = 0;
+	this.length = 0;
 }
 
-Queue.prototype._reset = function _reset(){
+DelayedShiftArrayQueue.prototype._reset = function _reset(){
 	this.backingStore = this.backingStore.slice(this.backingStoreOffset, this.backingStore.length);
 	this.backingStoreOffset = 0;
 };
 
-Queue.prototype.push = function push(element){
+DelayedShiftArrayQueue.prototype.push = function push(element){
 	this.backingStore.push(element);
+	this.length += 1;
 };
 
-Queue.prototype.pull = function pull(){
+DelayedShiftArrayQueue.prototype.shift = function shift(){
 	if(this.backingStoreOffset < this.backingStore.length){
 		var element = this.backingStore[this.backingStoreOffset];
 		this.backingStoreOffset++;
 		if(this.backingStoreOffset >= this.minShiftLength){
 			this._reset();
 		}
+		this.length -= 1;
+		return element;
 	}
 	else{
 		//No elements exist in the backing store that haven't been read yet.
