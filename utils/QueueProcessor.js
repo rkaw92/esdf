@@ -70,12 +70,13 @@ QueueProcessor.prototype._process = function _process(processorFunction){
 		// Create a function to be called when this item's processing finishes - its task will be to start processing the next item when ready.
 		var continueProcessing = (function(){
 			--this._activeWorkers;
-			this._process(processorFunction);
+			return this._process(processorFunction);
 		}).bind(this);
 		var processError = (function(error){
-			this._processError(currentWorkItem, error, continueProcessing);
+			return this._processError(currentWorkItem, error, continueProcessing);
 		}).bind(this);
-		when(this._processorFunction(currentWorkItem)).then(continueProcessing, processError);
+		processorFunction = processorFunction || this._processorFunction;
+		return when.try(processorFunction, currentWorkItem).then(continueProcessing, processError);
 	}).bind(this));
 	return true;
 };
@@ -85,7 +86,7 @@ QueueProcessor.prototype._processError = function _processError(workItem, error,
 	this._errorLabelFunction(workItem, error);
 	// Requeue the item at the back of the queue, so that it may be processed later.
 	this.push(workItem);
-	resumeCallback();
+	return resumeCallback();
 };
 
 QueueProcessor.prototype._maintainWorkerCount = function _maintainWorkerCount(){
@@ -133,13 +134,11 @@ QueueProcessor.prototype.start = function start(){
 QueueProcessor.prototype.pause = function pause(){
 	this._paused = true;
 	if(this._processing){
-		// Create the promise for delayed processing stop...
-		var stopDeferred = when.defer();
-		// When work really does stop, fulfil it!
-		this._notifier.once('WorkStopped', function _fulfillStopPromise(){
-			stopDeferred.resolve();
+		return when.promise(function (resolve, reject) {
+			this._notifier.once('WorkStopped', function _fulfillStopPromise(){
+				return resolve();
+			});
 		});
-		return stopDeferred;
 	}
 	else{
 		// We are already stopped (not processing anything), so we may as well return an already-resolved promise.
