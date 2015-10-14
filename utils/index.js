@@ -20,3 +20,4 @@ module.exports.deriveUUID = require('./deriveUUID').deriveUUID;
 module.exports.SnapshotStrategy = require('./SnapshotStrategy');
 module.exports.DelayedShiftArrayQueue = require('./Queue').DelayedShiftArrayQueue;
 module.exports.WritableQueue = require('./WritableQueue').WritableQueue;
+module.exports.ResourceQueueManager = require('./ResourceQueueManager').ResourceQueueManager;
