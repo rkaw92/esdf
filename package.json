@@ -2,7 +2,7 @@
   "name": "esdf",
   "preferGlobal": false,
   "version": "0.1.4",
-  "author": "Robert Kawecki <thewanderer@gim11.pl>",
+  "author": "Robert Kawecki <robert+npm@rkaw.pl>",
   "description": "a frugal event-sourced domain-driven design framework with elements of cqrs",
   "repository": {
     "type": "git",
