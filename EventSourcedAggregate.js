@@ -196,7 +196,7 @@ EventSourcedAggregate.prototype.getSnapshotter = function getSnapshotter(){
  * @returns {number}
  */
 EventSourcedAggregate.prototype.getNextSequenceNumber = function getNextSequenceNumber(){
-	return this._nextSequenceNumber;
+	return this._nextSequenceNumber || 1;
 };
 
 /**
