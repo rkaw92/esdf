@@ -13,6 +13,7 @@ module.exports.core = {
 };
 
 module.exports.utils = require('./utils');
+module.exports.utils.CommitStream = require('./types/CommitStream').CommitStream;
 
 module.exports.test = {
 	DummyEventSink: require('./EventStore/DummyEventSink.js').DummyEventSink,
