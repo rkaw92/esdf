@@ -49,7 +49,13 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 	
 	function singlePass() {
 		// Delegate the loading itself to the dependency-injected loader function (hopefully, it's something useful, such as a bound Event Store method).
-		return when.try(loaderFunction, ARConstructor, ARID).then(function runUserFunction(aggregateInstance) {
+		return when.try(loaderFunction, ARConstructor, ARID, {
+			// Always use the "advanced mode" output of the loader internally, so that we get more information, including a "commit diff".
+			advanced: true,
+			// Pass the diffSince option through.
+			diffSince: options.diffSince
+		}).then(function runUserFunction(loadingResult) {
+			var aggregateInstance = loadingResult.instance;
 			return when.try(userFunction, aggregateInstance).then(function saveAggregateState(userFunctionResult) {
 				return when.try(aggregateInstance.commit.bind(aggregateInstance), options.commitMetadata || {}).catch(function handleSavingError(savingError) {
 					failureLogger(savingError);
@@ -60,7 +66,16 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 					else {
 						return when.reject(savingError);
 					}
-				}).yield(userFunctionResult);
+				}).then(function() {
+					// If the caller has requested an "advanced format" result, pass the data through to them, enriched with the result of the user function.
+					if (options.advanced) {
+						loadingResult.result = userFunctionResult;
+						return loadingResult;
+					}
+					else {
+						return userFunctionResult;
+					}
+				});
 			});
 		}, function handleLoadingError(loadingError) {
 			failureLogger(loadingError);

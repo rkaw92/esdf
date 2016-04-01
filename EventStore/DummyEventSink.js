@@ -5,6 +5,7 @@
 var when = require('when');
 var EventEmitter = require('events').EventEmitter;
 var QueueProcessor = require('../utils/QueueProcessor.js').QueueProcessor;
+var CommitStream = require('../types/CommitStream').CommitStream;
 
 /**
  * Create a dummy Event Sink. The Event Sink can fully simulate sinking and rehydration, and stays in compliance with Promises/A.
@@ -93,34 +94,69 @@ DummyEventSink.prototype.sink = function sink(commit){
 	}).bind(this));
 };
 
+DummyEventSink.prototype.getCommitStream = function getCommitStream(sequenceID, since) {
+	var self = this;
+	var alreadyRead = false;
+	
+	return new CommitStream(function(sequenceID, sequenceSlot) {
+		if (alreadyRead) {
+			return when.resolve(null);
+		}
+		
+		// Return all commits as a single batch. Performance is not too critical for the DummyEventSink, so we let the CommitStream take care of splitting the array into commits.
+		alreadyRead = true;
+		var chunk = (self._streams[sequenceID] || []).slice(since - 1);
+		return when.resolve(chunk);
+	}, sequenceID, since);
+};
+
 /**
  * Apply all the events from a given stream ID to the passed aggregate object.
  * 
  * @param {module:esdf/core/EventSourcedAggregate~EventSourcedAggregate} object The aggregate object to apply the events to.
- * @param {string} stream_id The stream ID from which to load the events.
+ * @param {string} sequenceID The stream ID from which to load the events.
  * @param {number} since The commit slot number to start the rehydration from (inclusive). Mainly used when the aggregate already has had some state applied, for example after loading a snapshot.
+ * @param {number} [diffSince] The commit slot number to compute the subsequent commits relative to. If passed, the resolution value of the returned rehydration promise will contain a list of commits since this slot number (non-inclusive) in the "diffCommits" property.
+ * @returns {Promise.<Object>} A promise for a status/info object that fulfills when the aggregate has been fully rehydrated, or rejects when an error occurs during the loading or applying of the commits from the sequence.
  */
-DummyEventSink.prototype.rehydrate = function rehydrate(object, sequenceID, since){
-	return when.promise((function(resolve, reject){
+DummyEventSink.prototype.rehydrate = function rehydrate(object, sequenceID, since, diffSince) {
+	if (isNaN(diffSince) || typeof(diffSince) !== 'number') {
+		diffSince = Infinity;
+	}
+	
+	return when.promise((function(resolve, reject) {
 		var rehydrateError = new Error('DummyEventSink.rehydrate:RehydrationEventRetrievalDummyFailure');
 		var sinceCommit = (typeof(since) === 'number') ? Math.floor(since) : 1;
 		if(sinceCommit < 1){
 			return reject(new Error('DummyEventSink.rehydrate:Can not start applying commits from commit slot number lesser than 1!'));
 		}
 		rehydrateError.type = this._failureType;
+		
 		if(this._wantRehydrateSuccess){
-			if(Array.isArray(this._streams[sequenceID])){
-				for(var commit_idx = sinceCommit - 1; commit_idx < this._streams[sequenceID].length; ++commit_idx){
-					var streamedCommit = this._streams[sequenceID][commit_idx];
-					try{
-						object.applyCommit(streamedCommit);
-					}
-					catch(err){
-						return reject(err);
+			var commitStream = this.getCommitStream(sequenceID, Math.min(sinceCommit, diffSince));
+			
+			// Prepare an array for the commits that have happened since diffSince.
+			var diffCommits = [];
+			
+			commitStream.on('data', function(commit) {
+				try {
+					// Apply the commit to the aggregate instance if needed:
+					object.applyCommit(commit);
+					// If the commit is considered "new" (after diffSince), we will need to return it in the diff.
+					if (commit.sequenceSlot > diffSince) {
+						diffCommits.push(commit);
 					}
 				}
-			}
-			return resolve('DummyEventSink.rehydrate:resolve');
+				catch (error) {
+					reject(error);
+				}
+			});
+			
+			commitStream.on('end', function() {
+				resolve({
+					diffCommits: diffCommits
+				});
+			});
 		}
 		else{
 			return reject(rehydrateError);

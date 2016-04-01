@@ -1,15 +1,10 @@
-var Repository = require('../utils/Repository.js').Repository;
-var DummyEventSink = require('../EventStore/DummyEventSink.js').DummyEventSink;
-var DummyEventSinkStreamer = require('../EventStore/DummyEventSinkStreamer.js').DummyEventSinkStreamer;
-var EventSourcedAggregate = require('../EventSourcedAggregate.js').EventSourcedAggregate;
-var AggregateLoader = require('../utils/loadAggregate.js');
+var TestEnvironment = require('../utils/TestEnvironment').TestEnvironment;
+var EventSourcedAggregate = require('../EventSourcedAggregate').EventSourcedAggregate;
 var Event = require('../Event').Event;
 var when = require('when');
 var assert = require('assert');
 
-var sink = new DummyEventSink();
-var loader = AggregateLoader.createAggregateLoader(sink, undefined);
-var repository = new Repository(loader);
+var env = new TestEnvironment();
 
 function DummyAggregate(){
 	this.ok = false;
@@ -25,20 +20,33 @@ DummyAggregate.prototype.makeEverythingOkay = function(){
 
 describe('Repository', function(){
 	describe('#invoke', function(){
-		it('should execute the user-provided function against the aggregate', function(done){
-			var streamer = new DummyEventSinkStreamer(sink);
-			streamer.setPublisher({
-				publishCommit: function(commit){
-					if(commit.events[0].eventType === 'Okayed'){
-						done();
-					}
-				}
+		it('should execute the user-provided function against the aggregate', function(done) {
+			// When we get the event that we were expecting in a stream from the Event Store, we are done with this test.
+			env.receiver.once('Okayed', function() {
+				done();
 			});
-			streamer.start();
-			repository.invoke(DummyAggregate, 'dummy-1', function(aggregateObject){
+			
+			env.repository.invoke(DummyAggregate, 'dummy-1', function(aggregateObject){
 				aggregateObject.makeEverythingOkay();
 				assert(aggregateObject.ok);
 			}).otherwise(console.log);
+		});
+		it('should return the commits that took place since a designated point in time (in advanced mode)', function() {
+			// First, put exactly one commit in this aggregate root's stream.
+			return env.repository.invoke(DummyAggregate, 'dummy-2', function(aggregateObject){
+				aggregateObject.makeEverythingOkay();
+				assert(aggregateObject.ok);
+			}).then(function() {
+				// Then, perform another transaction on the aggregate root, but this time, request a diff since the beginning, too.
+				return env.repository.invoke(DummyAggregate, 'dummy-2', function(aggregateObject){
+					aggregateObject.makeEverythingOkay();
+					assert(aggregateObject.ok);
+				}, { advanced: true, diffSince: 0 });
+			}).then(function(result) {
+				// Ensure we are only getting the diff from before the operation - it must not include the newly-persisted event.
+				assert.equal(result.rehydration.diffCommits.length, 1);
+				assert.equal(result.rehydration.diffCommits[0].events[0].eventType, 'Okayed');
+			});
 		});
 	});
 });
