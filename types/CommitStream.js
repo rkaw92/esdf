@@ -29,6 +29,10 @@ function CommitStream(reader, sequenceID, start) {
 				if (!Array.isArray(commits) && commits !== null) {
 					throw new Error('Expected an array of Commit objects, but got an unknown type from the commit reader function');
 				}
+				// Move forward in the stream:
+				if (Array.isArray(commits)) {
+					currentOffset += commits.length;
+				}
 				// Only perform one push(). Multiple pushes from one _read() are apparently a sure-fire way to cause a huge memory leak.
 				self.push(commits);
 			}).catch(function(error) {
