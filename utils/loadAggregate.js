@@ -103,8 +103,6 @@ function loadAggregate(ARConstructor, ARID, eventSink, snapshotter, options) {
 				});
 			});
 		});
-		
-		return when.try(eventSink.rehydrate.bind(eventSink), ARObject, ARID, ARObject.getNextSequenceNumber(), options.diffSince);
 	}
 	
 	var ARObject = constructAggregate();
