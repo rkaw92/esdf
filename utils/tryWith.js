@@ -76,12 +76,15 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 				}).then(function() {
 					// If the caller has requested an "advanced format" result, pass the data through to them, enriched with the result of the user function.
 					if (options.advanced) {
-						loadingResult.result = userFunctionResult;
+						var output = {
+							result: userFunctionResult,
+							rehydration: loadingResult.rehydration
+						};
 						// Additionally, if "newCommits" is enabled, also add the events produced by the current invocation to the returned property.
 						if (options.newCommits) {
-							loadingResult.rehydration.diffCommits = (loadingResult.rehydration.diffCommits || []).concat([ stagedCommit ]);
+							output.rehydration.diffCommits = (output.rehydration.diffCommits || []).concat([ stagedCommit ]);
 						}
-						return loadingResult;
+						return output;
 					}
 					else {
 						return userFunctionResult;
