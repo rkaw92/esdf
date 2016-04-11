@@ -362,7 +362,7 @@ EventSourcedAggregate.prototype.supportsSnapshotGeneration = function supportsSn
  * @returns {module:esdf/core/Commit~Commit}
  */
 EventSourcedAggregate.prototype.getCommit = function getCommit(metadata) {
-	return new Commit(this._stagedEvents.slice(), this._aggregateID, this._nextSequenceNumber, this._aggregateType, metadata);
+	return new Commit((this._stagedEvents || []).slice(), this._aggregateID, this._nextSequenceNumber, this._aggregateType, metadata);
 };
 
 
