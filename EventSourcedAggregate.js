@@ -354,6 +354,19 @@ EventSourcedAggregate.prototype.supportsSnapshotGeneration = function supportsSn
 };
 
 /**
+ * Get a Commit object containing all staged events.
+ * Such an object is suitable for saving in a database as an atomic transaction.
+ * @method
+ * @public
+ * @param {Object} metadata - The metadata to assign to the constructed Commit.
+ * @returns {module:esdf/core/Commit~Commit}
+ */
+EventSourcedAggregate.prototype.getCommit = function getCommit(metadata) {
+	return new Commit(this._stagedEvents.slice(), this._aggregateID, this._nextSequenceNumber, this._aggregateType, metadata);
+};
+
+
+/**
  * Save all staged events to the Event Sink (assigned earlier manually from outside to the Aggregate's "_eventSink" property).
  * A snapshot save is automatically triggered (in the background) if the snapshotting strategy allows it.
  * @method
@@ -379,7 +392,7 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
 		return emitDeferred.resolver.resolve();
 	}
 	// Construct the commit object. We use slice() to make a point-in-time snapshot of the array's structure, so that further pushes/removals do not affect it.
-	var commitObject = new Commit(this._stagedEvents.slice(), this._aggregateID, this._nextSequenceNumber, this._aggregateType, metadata);
+	var commitObject = this.getCommit(metadata);
 	// ... and tell the sink to try saving it, reacting to the result:
 	when(self._eventSink.sink(commitObject),
 	function _commitSinkSucceeded(result){

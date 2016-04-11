@@ -17,12 +17,13 @@ var RetryStrategy = require('./RetryStrategy.js');
  * @param {function} userFunction The function that will be executed against the Aggregate Root instance after it has been rehydrated. It accepts a single argument - the instance - and should return a promise-or-value. The aggregate's state is only saved once the promise resolves.
  * @param {Object} [options] Additional settings specifying how the load/execute/save operation should be carried out.
  * @param {function} [options.failureLogger] A function which shall be called if an error during loading or saving occurs. The error is passed as the sole argument to the failure logger function.
- * @returns {Promise} A Promise which fulfills with the value which the userFunction has returned/fulfilled with, or rejects if the loading, execution of the user function or the saving failed.
+ * @param {Boolean} [options.advanced=false] Whether advanced return mode should be enabled. In advanced mode, the returned object is not the userFunction result itself, but instead an Object: { result, rehydration }, where rehydration is additional information about the loading process itself.
+ * @param {Number} [options.diffSince=Infinity] A sequence slot to compute a difference from in advanced mode. All commits in slots greater than this value are returned, barring the commit that is generated in the current invocation (unless "newCommits" is used).
+ * @param {Boolean} [options.newCommits=false] Whether the commit generated in course of executing the user function should be included in diffCommits. By default, only past commits that have existed at time of loading are returned.
+ * @returns {Promise} A Promise which fulfills with the value which the userFunction has returned/fulfilled with, or rejects if the loading, execution of the user function or the saving failed. In advanced mode, it resolves with an Object that contains the value and other properties.
  */
 function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
-	if(!options){
-		options = {}; // Because referring to undefined's properties (as could be the case below) is an error in JS.
-	}
+	options = options || {};
 	
 	// Process the provided options.
 	// Delay function, used to delegate execution to the event loop some time in the future.
@@ -56,7 +57,13 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 			diffSince: options.diffSince
 		}).then(function runUserFunction(loadingResult) {
 			var aggregateInstance = loadingResult.instance;
+			var stagedCommit;
+			
 			return when.try(userFunction, aggregateInstance).then(function saveAggregateState(userFunctionResult) {
+				// Get the events staged by the aggregate root in course of execution and eventually append them to the result if requested.
+				stagedCommit = aggregateInstance.getCommit(options.commitMetadata || {});
+				
+				// Actually commit:
 				return when.try(aggregateInstance.commit.bind(aggregateInstance), options.commitMetadata || {}).catch(function handleSavingError(savingError) {
 					failureLogger(savingError);
 					var strategyAllowsAnotherTry = shouldTryAgain(savingError);
@@ -70,6 +77,10 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 					// If the caller has requested an "advanced format" result, pass the data through to them, enriched with the result of the user function.
 					if (options.advanced) {
 						loadingResult.result = userFunctionResult;
+						// Additionally, if "newCommits" is enabled, also add the events produced by the current invocation to the returned property.
+						if (options.newCommits) {
+							loadingResult.rehydration.diffCommits = (loadingResult.rehydration.diffCommits || []).concat([ stagedCommit ]);
+						}
 						return loadingResult;
 					}
 					else {
