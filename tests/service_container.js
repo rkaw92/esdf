@@ -1,4 +1,4 @@
-var ServiceContainer = require('esdf').services.ServiceContainer;
+var ServiceContainer = require('../index').services.ServiceContainer;
 var assert = require('assert');
 
 describe('ServiceContainer', function(){
