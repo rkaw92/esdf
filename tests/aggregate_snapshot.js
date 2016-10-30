@@ -1,9 +1,12 @@
-var EventSourcedAggregate = require('../EventSourcedAggregate.js').EventSourcedAggregate;
-var AggregateSnapshot = require('../utils/AggregateSnapshot.js').AggregateSnapshot;
-var DummyAggregateSnapshotter = require('../EventStore/DummyAggregateSnapshotter.js').DummyAggregateSnapshotter;
-var Event = require('../Event.js').Event;
-var assert = require('assert');
-var util = require('util');
+'use strict';
+
+const esdf = require('../');
+const EventSourcedAggregate = esdf.core.EventSourcedAggregate;
+const AggregateSnapshot = esdf.types.AggregateSnapshot;
+const DummyAggregateSnapshotter = esdf.test.DummyAggregateSnapshotter;
+const Event = esdf.core.Event;
+const assert = require('assert');
+const util = require('util');
 
 // Has snapshot support.
 function Snappy(){
@@ -66,14 +69,5 @@ describe('EventSourcedAggregate', function(){
 			}
 		});
 	});
-	describe('#_saveSnapshot', function(){
-		var snapshotDB = new DummyAggregateSnapshotter();
-		it('should save the snapshot to the database', function(done){
-			var aggr4 = new Snappy();
-			aggr4.okay(1234);
-			aggr4.setSnapshotter(snapshotDB);
-			aggr4.setAggregateID('aggr4');
-			aggr4._saveSnapshot().then(done, done);
-		});
-	});
+	//TODO: Test snapshot saving/loading with a Repository. Possibly move this aspect to the Repository test file.
 });

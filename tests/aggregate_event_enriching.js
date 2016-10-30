@@ -1,7 +1,10 @@
-var EventSourcedAggregate = require('../EventSourcedAggregate.js').EventSourcedAggregate;
-var Event = require('../Event').Event;
-var util = require('util');
-var assert = require('assert');
+'use strict';
+
+const esdf = require('../');
+const EventSourcedAggregate = esdf.core.EventSourcedAggregate;
+const Event = esdf.core.Event;
+const util = require('util');
+const assert = require('assert');
 
 function RichAggregate(){
 	this._soRich = 'wow';

@@ -1,11 +1,14 @@
-var DummyEventSink = require('../EventStore/DummyEventSink.js').DummyEventSink;
-var DummyEventSinkStreamer = require('../EventStore/DummyEventSinkStreamer.js').DummyEventSinkStreamer;
-var QueueProcessor = require('../utils/QueueProcessor.js').QueueProcessor;
-var QueueRouter = require('../utils/QueueRouter.js').QueueRouter;
-var DummyEventBusPublisher = require('../EventBus/DummyEventBusPublisher.js').DummyEventBusPublisher;
-var DummyEventBusSubscriber = require('../EventBus/DummyEventBusSubscriber.js').DummyEventBusSubscriber;
-var Event = require('../Event.js').Event;
-var Commit = require('../Commit.js').Commit;
+'use strict';
+
+const esdf = require('esdf');
+const DummyEventSink = esdf.test.DummyEventSink;
+const DummyEventSinkStreamer = esdf.test.DummyEventSinkStreamer;
+const QueueProcessor = esdf.utils.QueueProcessor;
+const QueueRouter = esdf.utils.QueueRouter;
+const DummyEventBusPublisher = esdf.test.DummyEventBusPublisher;
+const DummyEventBusSubscriber = esdf.test.DummyEventBusSubscriber;
+const Event = esdf.core.Event;
+const Commit = esdf.core.Commit;
 
 var sink = new DummyEventSink();
 var streamer = new DummyEventSinkStreamer(sink);

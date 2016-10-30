@@ -1,4 +1,4 @@
-var esdf = require('../index');
+var esdf = require('../');
 var ResourceQueueManager = esdf.utils.ResourceQueueManager;
 var when = require('when');
 var assert = require('assert');

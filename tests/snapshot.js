@@ -1,6 +1,5 @@
-var Snapshot = require('../utils/AggregateSnapshot.js').AggregateSnapshot;
-var DummyAggregateSnapshotter = require('../EventStore/DummyAggregateSnapshotter.js').DummyAggregateSnapshotter;
-var Loader = require('../utils/loadAggregate.js');
+var Snapshot = require('../').types.AggregateSnapshot;
+var DummyAggregateSnapshotter = require('../').test.DummyAggregateSnapshotter;
 var assert = require('assert');
 
 var db1 = new DummyAggregateSnapshotter();

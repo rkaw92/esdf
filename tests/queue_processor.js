@@ -1,4 +1,4 @@
-var QueueProcessor = require('../utils/QueueProcessor.js').QueueProcessor;
+var QueueProcessor = require('../').utils.QueueProcessor;
 var assert = require('assert');
 var EventEmitter = require('events').EventEmitter;
 var when = require('when');

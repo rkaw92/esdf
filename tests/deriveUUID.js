@@ -1,4 +1,4 @@
-var deriveUUID = require('../utils/deriveUUID.js').deriveUUID;
+var deriveUUID = require('../').utils.deriveUUID;
 var assert = require('assert');
 
 var testNS1 = 'c3bda8a6-8d01-49a4-b0cc-a1de27c9cde5';

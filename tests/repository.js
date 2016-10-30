@@ -1,8 +1,11 @@
-var TestEnvironment = require('../utils/TestEnvironment').TestEnvironment;
-var EventSourcedAggregate = require('../EventSourcedAggregate').EventSourcedAggregate;
-var Event = require('../Event').Event;
-var when = require('when');
-var assert = require('assert');
+'use strict';
+
+const esdf = require('esdf');
+const TestEnvironment = require('../').utils.TestEnvironment;
+const EventSourcedAggregate = esdf.core.EventSourcedAggregate;
+const Event = esdf.core.Event;
+const when = require('when');
+const assert = require('assert');
 
 var env = new TestEnvironment();
 

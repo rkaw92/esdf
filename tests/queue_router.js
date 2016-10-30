@@ -1,5 +1,5 @@
-var QueueRouter = require('../utils/QueueRouter.js').QueueRouter;
-var QueueProcessor = require('../utils/QueueProcessor.js').QueueProcessor;
+var QueueRouter = require('../').utils.QueueRouter;
+var QueueProcessor = require('../').utils.QueueProcessor;
 
 var router = new QueueRouter();
 
