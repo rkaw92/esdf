@@ -95,8 +95,7 @@ function EventSourcedAggregate(){
 	 * @private
 	 * @type string
 	 */
-	//TODO: Move aggregateType out!
-// 	this._aggregateType = undefined;
+	this._aggregateType = this._aggregateType || this.constructor.name;
 	/**
 	 * Snapshotting strategy used while committing changes. The default is to save a snapshot every commit (if a snapshotter is at all available).
 	 * @private
