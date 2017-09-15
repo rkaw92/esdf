@@ -64,22 +64,11 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 				stagedCommit = aggregateInstance.getCommit(options.commitMetadata || {});
 
 				// Actually commit:
-				return when.try(aggregateInstance.commit.bind(aggregateInstance), options.commitMetadata || {}).yield(userFunctionResult).catch(function handleSavingError(savingError) {
-					failureLogger(savingError);
-					var strategyAllowsAnotherTry = shouldTryAgain(savingError);
-					if (strategyAllowsAnotherTry) {
-						return delay(singlePass);
-					}
-					else {
-						return when.reject(savingError);
-					}
-				}).then(function(finalResult) {
-					// Note: we accept finalResult into this function because the retry
-					//  may have overridden it since the first entry into userFunction.
+				return when.try(aggregateInstance.commit.bind(aggregateInstance), options.commitMetadata || {}).then(function _buildOutput() {
 					// If the caller has requested an "advanced format" result, pass the data through to them, enriched with the result of the user function.
 					if (options.advanced) {
 						var output = {
-							result: finalResult,
+							result: userFunctionResult,
 							rehydration: loadingResult.rehydration
 						};
 						// Additionally, if "newCommits" is enabled, also add the events produced by the current invocation to the returned property.
@@ -89,7 +78,16 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 						return output;
 					}
 					else {
-						return finalResult;
+						return userFunctionResult;
+					}
+				}, function handleSavingError(savingError) {
+					failureLogger(savingError);
+					var strategyAllowsAnotherTry = shouldTryAgain(savingError);
+					if (strategyAllowsAnotherTry) {
+						return delay(singlePass);
+					}
+					else {
+						return when.reject(savingError);
 					}
 				});
 			});

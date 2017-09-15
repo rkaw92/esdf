@@ -23,7 +23,6 @@ function CounterAggregate(){
 util.inherits(CounterAggregate, esdf.core.EventSourcedAggregate);
 
 CounterAggregate.prototype.incrementAndReturn = function incrementAndReturn() {
-	console.log('incrementAndReturn');
 	this._stageEvent(new esdf.core.Event('Incremented', {}));
 	return this._counter;
 };
@@ -61,6 +60,28 @@ describe('tryWith', function(){
 				return counter.incrementAndReturn();
 			}).then(function(counterValue){
 				counter2 = counterValue;
+			})
+		]).then(function() {
+			assert((typeof counter1) === 'number');
+			assert((typeof counter2) === 'number');
+			assert.notStrictEqual(counter1, counter2);
+			done();
+		}).catch(done);
+	});
+
+	it('should return the latest method return value on reload/retry also in advanced mode', function(done) {
+		var counter1 = null;
+		var counter2 = null;
+		when.all([
+			tryWith(loader, CounterAggregate, 'TestAggregate-4', function testUserFunction(counter){
+				return counter.incrementAndReturn();
+			}, { advanced: true }).then(function(output){
+				counter1 = output.result;
+			}),
+			tryWith(loader, CounterAggregate, 'TestAggregate-4', function testUserFunction(counter){
+				return counter.incrementAndReturn();
+			}, { advanced: true }).then(function(output){
+				counter2 = output.result;
 			})
 		]).then(function() {
 			assert((typeof counter1) === 'number');
