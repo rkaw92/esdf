@@ -1,6 +1,6 @@
 // ### Requires and aliases ###
 
-var esdf = require('esdf');
+var esdf = require('..');
 var util = require('util');
 var when = require('when');
 var LogicSaga = esdf.core.LogicSaga;
