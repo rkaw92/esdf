@@ -1,6 +1,7 @@
 var esdf = require('../index');
 var util = require('util');
 var assert = require('assert');
+var when = require('when');
 
 function SomeAggregate(){
 	this._okayed = false;
@@ -14,6 +15,21 @@ SomeAggregate.prototype.onOkayed = function onOkayed(event){
 
 SomeAggregate.prototype.okay = function okay(){
 	this._stageEvent(new esdf.core.Event('Okayed', {}));
+};
+
+function CounterAggregate(){
+	this._counter = 0;
+}
+util.inherits(CounterAggregate, esdf.core.EventSourcedAggregate);
+
+CounterAggregate.prototype.incrementAndReturn = function incrementAndReturn() {
+	console.log('incrementAndReturn');
+	this._stageEvent(new esdf.core.Event('Incremented', {}));
+	return this._counter;
+};
+
+CounterAggregate.prototype.onIncremented = function onIncremented() {
+	this._counter = this._counter + 1;
 };
 
 var sink = new esdf.test.DummyEventSink();
@@ -30,6 +46,28 @@ describe('tryWith', function(){
 			assert.strictEqual(okayResolution, 42);
 			done();
 		});
+	});
+
+	it('should return the latest method return value on reload/retry', function(done) {
+		var counter1 = null;
+		var counter2 = null;
+		when.all([
+			tryWith(loader, CounterAggregate, 'TestAggregate-3', function testUserFunction(counter){
+				return counter.incrementAndReturn();
+			}).then(function(counterValue){
+				counter1 = counterValue;
+			}),
+			tryWith(loader, CounterAggregate, 'TestAggregate-3', function testUserFunction(counter){
+				return counter.incrementAndReturn();
+			}).then(function(counterValue){
+				counter2 = counterValue;
+			})
+		]).then(function() {
+			assert((typeof counter1) === 'number');
+			assert((typeof counter2) === 'number');
+			assert.notStrictEqual(counter1, counter2);
+			done();
+		}).catch(done);
 	});
 });
 

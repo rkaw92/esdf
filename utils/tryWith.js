@@ -24,7 +24,7 @@ var RetryStrategy = require('./RetryStrategy.js');
  */
 function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 	options = options || {};
-	
+
 	// Process the provided options.
 	// Delay function, used to delegate execution to the event loop some time in the future.
 	var delegationFunction = (options.delegationFunction) ? options.delegationFunction : setImmediate;
@@ -44,10 +44,10 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 		var strategyRetryDecision = (!strategyError);
 		// However, we do not have to agree with it - all critical errors, no matter what the strategy has decided, should fail the tryWith procedure.
 		var ownDecision = (error && error.labels && error.labels.isRetriable);
-		
+
 		return strategyRetryDecision && ownDecision;
 	};
-	
+
 	function singlePass() {
 		// Delegate the loading itself to the dependency-injected loader function (hopefully, it's something useful, such as a bound Event Store method).
 		return when.try(loaderFunction, ARConstructor, ARID, {
@@ -58,13 +58,13 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 		}).then(function runUserFunction(loadingResult) {
 			var aggregateInstance = loadingResult.instance;
 			var stagedCommit;
-			
+
 			return when.try(userFunction, aggregateInstance).then(function saveAggregateState(userFunctionResult) {
 				// Get the events staged by the aggregate root in course of execution and eventually append them to the result if requested.
 				stagedCommit = aggregateInstance.getCommit(options.commitMetadata || {});
-				
+
 				// Actually commit:
-				return when.try(aggregateInstance.commit.bind(aggregateInstance), options.commitMetadata || {}).catch(function handleSavingError(savingError) {
+				return when.try(aggregateInstance.commit.bind(aggregateInstance), options.commitMetadata || {}).yield(userFunctionResult).catch(function handleSavingError(savingError) {
 					failureLogger(savingError);
 					var strategyAllowsAnotherTry = shouldTryAgain(savingError);
 					if (strategyAllowsAnotherTry) {
@@ -73,11 +73,13 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 					else {
 						return when.reject(savingError);
 					}
-				}).then(function() {
+				}).then(function(finalResult) {
+					// Note: we accept finalResult into this function because the retry
+					//  may have overridden it since the first entry into userFunction.
 					// If the caller has requested an "advanced format" result, pass the data through to them, enriched with the result of the user function.
 					if (options.advanced) {
 						var output = {
-							result: userFunctionResult,
+							result: finalResult,
 							rehydration: loadingResult.rehydration
 						};
 						// Additionally, if "newCommits" is enabled, also add the events produced by the current invocation to the returned property.
@@ -87,7 +89,7 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 						return output;
 					}
 					else {
-						return userFunctionResult;
+						return finalResult;
 					}
 				});
 			});
@@ -102,7 +104,7 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 			}
 		});
 	}
-	
+
 	return singlePass();
 }
 
