@@ -25,7 +25,7 @@ describe('ResourceQueueManager', function() {
 				});
 			};
 		}
-		
+
 		return when.all([
 			manager.run('A', taskFactory('A', 0)),
 			manager.run('A', taskFactory('A', 1)),
@@ -43,5 +43,22 @@ describe('ResourceQueueManager', function() {
 			// Also verify that queues are promptly removed, to avoid unnecessary memory pressure.
 			assert.equal(Object.keys(manager._queues).length, 0);
 		});
+	});
+	it('should support a custom logger function', function() {
+		var logger;
+		var logPromise = when.promise(function(fulfill) {
+			logger = function(resourceID, error) {
+				if (resourceID === 'A' && error.message === 'This is an expected failure, don\'t panic!') {
+					fulfill();
+				} else {
+					reject(error);
+				}
+			};
+		});
+		var manager = new ResourceQueueManager({ retryDelay: 10, logger: logger });
+		manager.run('A', function fail() {
+			throw new Error('This is an expected failure, don\'t panic!');
+		});
+		return logPromise;
 	});
 });

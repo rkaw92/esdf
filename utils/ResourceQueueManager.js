@@ -7,6 +7,7 @@ var QueueProcessor = require('./QueueProcessor').QueueProcessor;
  * @constructor
  * @param {Object} [options] - Optional settings for the queue manager.
  * @param {Object} [options.retryDelay] - A delay to apply before retrying a failed task for a resource. The delay only applies within one resource - that is, tasks for other resources are not delayed in any way.
+ * @param {function(string,Error)} [options.logger] - A logger function that accepts arguments (resourceID, error) and logs the failure to process a task for a resource. By default, console.error() is used.
  */
 function ResourceQueueManager(options) {
 	/**
@@ -15,6 +16,9 @@ function ResourceQueueManager(options) {
 	 */
 	this._queues = Object.create(null);
 	this._options = options || {};
+	this._logger = options.logger || function(resourceID, error) {
+		console.error('Error in queue for resource %s: %s', resourceID, (error ? (error.stack || error) : error));
+	};
 }
 
 
@@ -41,7 +45,7 @@ ResourceQueueManager.prototype.run = function run(resourceID, task) {
 						delete self._queues[resourceID];
 					}
 				}).then(taskContainer.fulfill, function(error) {
-					console.error('Error in queue for resource %s: %s', resourceID, (error ? (error.stack || error) : error));
+					self._logger(resourceID, error);
 					if (!self._options.retryDelay) {
 						return tryTask();
 					}
@@ -50,13 +54,13 @@ ResourceQueueManager.prototype.run = function run(resourceID, task) {
 					}
 				});
 			}
-			
+
 			return tryTask();
-			
+
 		});
 		self._queues[resourceID].start();
 	}
-	
+
 	return when.promise(function(fulfill, reject) {
 		self._queues[resourceID].pendingTasksForResource += 1;
 		self._queues[resourceID].push({
