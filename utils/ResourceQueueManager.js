@@ -16,7 +16,7 @@ function ResourceQueueManager(options) {
 	 */
 	this._queues = Object.create(null);
 	this._options = options || {};
-	this._logger = options.logger || function(resourceID, error) {
+	this._logger = this._options.logger || function(resourceID, error) {
 		console.error('Error in queue for resource %s: %s', resourceID, (error ? (error.stack || error) : error));
 	};
 }
