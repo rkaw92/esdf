@@ -61,7 +61,16 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 
 			return when.try(userFunction, aggregateInstance).then(function saveAggregateState(userFunctionResult) {
 				// Get the events staged by the aggregate root in course of execution and eventually append them to the result if requested.
-				stagedCommit = aggregateInstance.getCommit(options.commitMetadata || {});
+				try {
+					stagedCommit = aggregateInstance.getCommit(options.commitMetadata || {});
+				} catch (commitConstructionError) {
+					// no-op: we've failed to construct the commit; maybe the aggregate
+					//  root instance has no ID assigned? Anyway, commit() will either
+					//  fail or succeed without writing anything (0 events). This is not
+					//  a common case, but a useful one when loading "dummy entities"
+					//  which are guaranteed to be in their initial state. This also
+					//  ensures compatibility with esdf 0.1.x.
+				}
 
 				// Actually commit:
 				return when.try(aggregateInstance.commit.bind(aggregateInstance), options.commitMetadata || {}).then(function _buildOutput() {
@@ -73,7 +82,7 @@ function tryWith(loaderFunction, ARConstructor, ARID, userFunction, options){
 						};
 						// Additionally, if "newCommits" is enabled, also add the events produced by the current invocation to the returned property.
 						if (options.newCommits) {
-							output.rehydration.diffCommits = (output.rehydration.diffCommits || []).concat([ stagedCommit ]);
+							output.rehydration.diffCommits = (output.rehydration.diffCommits || []).concat(stagedCommit ? [ stagedCommit ] : []);
 						}
 						return output;
 					}
