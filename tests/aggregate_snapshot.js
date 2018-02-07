@@ -1,6 +1,7 @@
 var EventSourcedAggregate = require('../EventSourcedAggregate.js').EventSourcedAggregate;
 var AggregateSnapshot = require('../utils/AggregateSnapshot.js').AggregateSnapshot;
 var DummyAggregateSnapshotter = require('../EventStore/DummyAggregateSnapshotter.js').DummyAggregateSnapshotter;
+var DummyEventSink = require('../EventStore/DummyEventSink.js').DummyEventSink;
 var Event = require('../Event.js').Event;
 var assert = require('assert');
 var util = require('util');
@@ -26,6 +27,9 @@ Snappy.prototype._applySnapshot = function _applySnapshot(snapshot){
 	for(var k in snapshot.aggregateData){
 		this[k] = snapshot.aggregateData[k];
 	}
+};
+Snappy.prototype._snapshotStrategy = function _alwaysSnapshot() {
+	return true;
 };
 
 // Does not really support snapshots.
@@ -74,6 +78,22 @@ describe('EventSourcedAggregate', function(){
 			aggr4.setSnapshotter(snapshotDB);
 			aggr4.setAggregateID('aggr4');
 			aggr4._saveSnapshot().then(done, done);
+		});
+	});
+	describe('#commit', function() {
+		it('should fulfill the promise even if snapshotting fails', function(done) {
+			var snapshotDB = new DummyAggregateSnapshotter();
+			var aggr5 = new Snappy();
+			aggr5._getSnapshotData = function _failIntentionally() {
+				throw new Error('Dummy failure while generating snapshot data');
+			};
+			aggr5.okay(1234);
+			aggr5.setEventSink(new DummyEventSink());
+			aggr5.setSnapshotter(snapshotDB);
+			aggr5.setAggregateID('aggr5');
+			aggr5.commit().then(function() {
+				done();
+			}, done);
 		});
 	});
 });

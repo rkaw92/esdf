@@ -383,19 +383,17 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
 		this._nextSequenceNumber = 1;
 	}
 	var self = this;
-	var emitDeferred = when.defer(); //emission promise - to be resolved when the event batch is saved in the database
 	// Try to sink the commit. If empty, return success immediately.
 	if(!this._stagedEvents){
 		this._stagedEvents = [];
 	}
 	if(this._stagedEvents.length === 0){
-		return emitDeferred.resolver.resolve();
+		return when.resolve();
 	}
 	// Construct the commit object. We use slice() to make a point-in-time snapshot of the array's structure, so that further pushes/removals do not affect it.
 	var commitObject = this.getCommit(metadata);
 	// ... and tell the sink to try saving it, reacting to the result:
-	when(self._eventSink.sink(commitObject),
-	function _commitSinkSucceeded(result){
+	return when.try(self._eventSink.sink.bind(self._eventSink), commitObject).then(function _commitSinkSucceeded(result) {
 		// Now that the commit is sunk, we can clear the event staging area - new events will end up in subsequent commits.
 		self._stagedEvents = [];
 		self._updateSequenceNumber(commitObject.sequenceSlot);
@@ -408,13 +406,16 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
 		}
 		// Now that the commit has been saved, we proceed to save a snapshot if the snapshotting strategy tells us to (and we have a snapshot save provider).
 		//  Note that _snapshotStrategy is called with "this" set to the current aggregate, which makes it behave like a private method.
-		if(self.supportsSnapshotGeneration() && self._snapshotter && self._snapshotStrategy && self._snapshotStrategy(commitObject)){
-			self._saveSnapshot();
+		if (self.supportsSnapshotGeneration() && self._snapshotter && self._snapshotStrategy && self._snapshotStrategy(commitObject)) {
+			when.try(self._saveSnapshot.bind(self)).catch(function(error) {
+				//TODO: We should not be using console directly, but there is currently
+				// no way to inject a custom logger.
+				console.error('Error saving snapshot for %s [%s]: %s', self._aggregateID, self._aggregateType, error);
+			});
 			// Since saving a snapshot is never mandatory for correct operation of an event-sourced application, we do not have to react to errors.
 		}
-		return emitDeferred.resolver.resolve(result);
-	},
-	function _commitSinkFailed(reason){
+		return result;
+	}, function _commitSinkFailed(reason) {
 		// Sink failed - do nothing. An upper layer can either retry the sinking, or reload the aggregate and retry (in the latter case, the sequence number will probably get refreshed).
 		if(self._IOObserver){
 			self._IOObserver.emit('CommitSinkFailure', {
@@ -422,9 +423,8 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
 				failureReason: reason
 			});
 		}
-		return emitDeferred.resolver.reject(reason);
-	}); //This is a promise (thenable), so return its consumer-facing part.
-	return emitDeferred.promise;
+		throw reason;
+	});
 };
 
 /**
@@ -436,28 +436,25 @@ EventSourcedAggregate.prototype.commit = function commit(metadata){
  */
 EventSourcedAggregate.prototype._saveSnapshot = function _saveSnapshot(){
 	var self = this;
-	if(this.supportsSnapshotGeneration()){
-		var snapshotObject = new AggregateSnapshot(this._aggregateType, this._aggregateID, this._getSnapshotData(), (this._nextSequenceNumber - 1));
-		return this._snapshotter.saveSnapshot(snapshotObject).then(
-		function _snapshotSaveSuccess(){
-			if(self._IOObserver){
-				self._IOObserver.emit('SnapshotSaveSuccess', {snapshotObject: snapshotObject});
-			}
-			return when.resolve();
-		},
-		function _snapshotSaveFailure(reason){
-			if(self._IOObserver){
-				self._IOObserver.emit('SnapshotSaveFailure', {
-					snapshotObject: snapshotObject,
-					failureReason: reason
-				});
-			}
-			return when.reject();
-		});
-	}
-	else{
-		return when.reject(new AggregateUsageError('An aggregate needs to implement _getSnapshotData in order to be able to save snapshots'));
-	}
+	return when.try(function() {
+		if (!self.supportsSnapshotGeneration()) {
+			return when.reject(new AggregateUsageError('An aggregate needs to implement _getSnapshotData in order to be able to save snapshots'));
+		}
+		var snapshotObject = new AggregateSnapshot(self._aggregateType, self._aggregateID, self._getSnapshotData(), (self._nextSequenceNumber - 1));
+		return self._snapshotter.saveSnapshot(snapshotObject);
+	}).then(function _snapshotSaveSuccess() {
+		if (self._IOObserver) {
+			self._IOObserver.emit('SnapshotSaveSuccess', { snapshotObject: snapshotObject });
+		}
+	}, function _snapshotSaveFailure(reason) {
+		if (self._IOObserver) {
+			self._IOObserver.emit('SnapshotSaveFailure', {
+				snapshotObject: snapshotObject,
+				failureReason: reason
+			});
+		}
+		throw reason;
+	});
 };
 
 /**
