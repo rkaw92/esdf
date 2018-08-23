@@ -37,7 +37,7 @@ tryWith is a function which loads the specified aggregate, performs the user-pro
 
 Below is a commented source code snippet for an online product ordering system. Presented are a basic aggregate root implementation and a few services (standalone functions) used to issue commands on the AR.
 
-```
+```js
 var util = require('util');
 var esdf = require('esdf');
 var EventSourcedAggregate = esdf.core.EventSourcedAggregate;
