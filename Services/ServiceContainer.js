@@ -22,6 +22,18 @@ function ServiceContainer(){
 	 * @private
 	 */
 	this._resources = {};
+	/**
+	 * A wrapper function that gets executed instead of the actual service.
+	 * By default, all that this does is execute the service function, passed
+	 *  as the second argument, with all parameters that follow. However, it is
+	 *  possible to override this behavior to enable more complex features,
+	 *  such as providing as a join point for AOP.
+	 * @type {function}
+	 */
+	this._serviceWrapper = function _transparentServiceWrapper(serviceName, service) {
+		var params = Array.prototype.slice.call(arguments, 2);
+		return service.apply(undefined, params);
+	};
 }
 
 /**
@@ -43,7 +55,31 @@ ServiceContainer.prototype.addResource = function addResource(resourceName, reso
 };
 
 /**
- * Get a service function by name, with the first parameter bound to the value of the static resources with dynamically-generated resources overlaid on them.
+ * Set the service wrapper to use when executing services. It is possible to
+ *  wrap each invocation in a custom function, so that it functions as
+ *  a join-point for logging, policy enforcement, etc.
+ * Note that it is the wrapper's responsibility to proxy the service, so it
+ *  should probably return the service's return value, respect promises etc.
+ * Also note that, when wrapping a synchronous service, if your wrapper returns
+ *  a Promise, the caller will get exactly that. Similarly, if your wrapper
+ *  rejects or throws instead of calling the service, the targeted service will
+ *  simply not run. Thus, in scenarios where the cross-cutting concern should
+ *  not impact the interface or the execution of the service, it is advisable
+ *  to not await the wrapper's promises and handle errors out-of-band.
+ * @param {function(function,...params)} wrapper - The service wrapper function that gets the service name as the first argument, the actual service function as the second argument, the generated/supplied resources as the third, and call-time parameters as subsequent (4..n) arguments.
+ */
+ServiceContainer.prototype.setServiceWrapper = function setServiceWrapper(wrapper) {
+	if (typeof wrapper !== 'function') {
+		throw new TypeError('wrapper must be a function');
+	}
+	this._serviceWrapper = wrapper;
+};
+
+/**
+ * Get a service function by name, with the first parameter bound to the value
+ *  of the static resources with dynamically-generated resources overlaid
+ *  on them. Note that this actually returns the bound service wrapper, not the
+ *  bare service function which was registered.
  * @private
  * @param {Object} providedResources The static resources, as previously registered by addResource.
  * @param {function} generatorFunction The function used to generate the dynamic runtime resources. No arguments are passed to it. Should return an object whose keys and values will be treated as if registered by addResource.
@@ -68,7 +104,7 @@ ServiceContainer.prototype._getBoundService = function _getBoundService(provided
 				}
 			}
 		}
-		return this._serviceFunctions[serviceName].bind(undefined, activeResources);
+		return this._serviceWrapper.bind(undefined, serviceName, this._serviceFunctions[serviceName], activeResources);
 	}
 	else{
 		throw new Error('Service does not exist: ' + serviceName);

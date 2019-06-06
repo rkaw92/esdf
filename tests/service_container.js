@@ -47,6 +47,31 @@ describe('ServiceContainer', function(){
 			assert.equal(testContainer.service('testServiceB')(), 'YOUR DATA');
 		});
 	});
+	describe('#setServiceWrapper', function() {
+		it('should add extra behavior to service invocations', function() {
+			var wrapContainer = new ServiceContainer();
+			// We'll use this variable to see if our wrapper has run:
+			var triggered = false;
+			// A good enough approximation!
+			wrapContainer.addResource('pi', 3);
+			wrapContainer.addService('circleAreaService', circleAreaService);
+			wrapContainer.setServiceWrapper(function(serviceName, service) {
+				if (serviceName === 'circleAreaService' && service === circleAreaService) {
+					triggered = true;
+				} else {
+					throw new Error('Wrong serviceName or service function passed to the wrapper - is the wrapper API broken?');
+				}
+				var params = Array.prototype.slice.call(arguments, 2);
+				return service.apply(undefined, params);
+			});
+			var command = wrapContainer.createServiceGetter({});
+			var result = command('circleAreaService')(10);
+			// Make sure our wrapper works:
+			assert(triggered);
+			// Check that the wrapper passes through return values:
+			assert.strictEqual(result, 300);
+		});
+	});
 	describe('#createServiceGetter', function(){
 		it('should create a service getter which acts the same as #service, while being a stand-alone function', function(){
 			var viaService = testContainer.service('testServiceA');
